@@ -1,5 +1,5 @@
 // pgstrap.ts
-import nodePgMigrate from "node-pg-migrate"
+import * as nodePgMigrateModule from "node-pg-migrate"
 import { Client } from "pg"
 import Debug from "debug"
 import path from "path"
@@ -48,7 +48,11 @@ export async function migrate(
         }
 
   const runMigrations = () =>
-    nodePgMigrate({
+    // some es import bug when it's built- something with interop
+    (
+      (nodePgMigrateModule as any).default.default ??
+      nodePgMigrateModule.default
+    )({
       dbClient: client,
       direction: "up",
       schema: "public",

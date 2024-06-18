@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   timeout: "2m",
   files: ["test/**/*.test.ts"],
   extensions: ["ts"],

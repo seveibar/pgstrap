@@ -57,6 +57,7 @@ test("use pgstrap in a normal way", async (t) => {
     // Usually messes up output, use if debugging
     // stdio: "inherit",
   }
+  console.log("test dir", testDir)
 
   execSync(`npm add -D file://${path.resolve(process.cwd())}`, shellOpts)
 
