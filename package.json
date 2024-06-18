@@ -1,0 +1,44 @@
+{
+  "name": "pgstrap",
+  "repository": "seveibar/pgstrap",
+  "version": "1.0.0",
+  "description": "Boostrap patterns for Typescript/Postgres projects",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "npm run build && ava",
+    "build": "tsup ./src/index.ts ./src/cli.ts --outDir ./dist --dts --sourcemap inline"
+  },
+  "bin": {
+    "pgstrap": "./dist/cli.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg-schema-dump": "^2.0.1",
+    "yargs": "^17.7.2"
+  },
+  "peerDependencies": {
+    "esbuild-register": "*",
+    "kysely": "*",
+    "node-pg-migrate": "*",
+    "pg-connection-from-env": "*",
+    "zapatos": "*"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.8",
+    "@types/yargs": "^17.0.24",
+    "ava": "^5.3.1",
+    "ava-postgres": "^4.0.5",
+    "esbuild": "^0.18.16",
+    "esbuild-register": "^3.4.2",
+    "esbuild-runner": "^2.2.2",
+    "mkdirp": "^3.0.1",
+    "mock-fs": "^5.2.0",
+    "node-pg-migrate": "^6.2.2",
+    "pg": "^8.11.1",
+    "pg-connection-from-env": "^1.1.0",
+    "tsup": "^7.1.0",
+    "zapatos": "^6.1.4"
+  }
+}
