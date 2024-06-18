@@ -3,7 +3,7 @@ import yargs from "yargs"
 import { migrate, reset, generate, createMigration, initPgstrap } from "./"
 import { getProjectContext } from "./get-project-context"
 
-yargs
+;(yargs as any)
   .command("init", "initialize pgstrap", {}, async () => {
     await initPgstrap({
       cwd: process.cwd(),
