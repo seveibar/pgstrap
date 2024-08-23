@@ -2,7 +2,7 @@
   "name": "pgstrap",
   "repository": "seveibar/pgstrap",
   "type": "module",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Bootstrap patterns for Typescript/Postgres projects",
   "main": "dist/index.cjs",
   "scripts": {
@@ -20,7 +20,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "pg-schema-dump": "^2.0.1",
+    "pg-schema-dump": "^2.0.2",
     "yargs": "^17.7.2"
   },
   "peerDependencies": {
