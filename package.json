@@ -20,6 +20,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@electric-sql/pglite": "^0.2.10",
     "pg-schema-dump": "^2.0.2",
     "yargs": "^17.7.2"
   },

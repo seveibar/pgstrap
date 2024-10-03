@@ -68,7 +68,7 @@ test("use pgstrap in a normal way", async (t) => {
     fs
       .readFileSync(path.join(testDir, "package.json"))
       .toString()
-      .includes("db:migrate")
+      .includes("db:migrate"),
   )
 
   execSync("npm install", shellOpts)
@@ -78,7 +78,7 @@ test("use pgstrap in a normal way", async (t) => {
   // Read files from directory and check that the migration was created
   const migrationFiles = fs.readdirSync(path.join(testDir, "src/db/migrations"))
   const migrationFile = migrationFiles.find((file) =>
-    file.includes("some-migration")
+    file.includes("some-migration"),
   )
   t.truthy(migrationFile)
 
@@ -86,18 +86,18 @@ test("use pgstrap in a normal way", async (t) => {
   // called "test_table" with a column called "test_column" of type "text"
   const migrationContent = fs.readFileSync(
     path.join(testDir, `src/db/migrations/${migrationFile}`),
-    "utf8"
+    "utf8",
   )
   const newMigrationContent = migrationContent.replace(
     "up(pgm: MigrationBuilder): Promise<void> {",
     `up(pgm: MigrationBuilder): Promise<void> {
 pgm.createTable("test_table", {
   test_column: "text"
-});`
+});`,
   )
   fs.writeFileSync(
     path.join(testDir, `src/db/migrations/${migrationFile}`),
-    newMigrationContent
+    newMigrationContent,
   )
 
   // Run the migration using "npm run db:migrate"
@@ -118,7 +118,7 @@ pgm.createTable("test_table", {
   await afterResetClient.connect()
 
   const { rows: rowsAfterReset } = await afterResetClient.query(
-    "SELECT * FROM test_table"
+    "SELECT * FROM test_table",
   )
   t.is(rowsAfterReset.length, 0)
 
@@ -126,11 +126,13 @@ pgm.createTable("test_table", {
 
   // Check that a schema.d.ts file was created
   t.truthy(
-    fs.readdirSync(path.join(testDir, "src/db/zapatos")).includes("schema.d.ts")
+    fs
+      .readdirSync(path.join(testDir, "src/db/zapatos"))
+      .includes("schema.d.ts"),
   )
   t.truthy(
     fs.existsSync(
-      path.join(testDir, "src/db/structure/public/tables/test_table/table.sql")
-    )
+      path.join(testDir, "src/db/structure/public/tables/test_table/table.sql"),
+    ),
   )
 })
