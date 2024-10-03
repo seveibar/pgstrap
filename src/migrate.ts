@@ -16,27 +16,37 @@ export async function createMigration(name: string, ctx: Context) {
   childProcess.execSync(
     `npx node-pg-migrate --migration-file-language ts -m ${
       ctx.dbDir ?? "src/db"
-    }/migrations create ${name}`
+    }/migrations create ${name}`,
   )
   console.log(`Migration ${name} created`)
 }
 
 export async function migrate(
-  ctx: Context & { databaseUrl?: string; migrationsDir?: string }
+  ctx: Context & {
+    databaseUrl?: string
+    migrationsDir?: string
+    client?: Client
+  },
 ) {
   if (!ctx.migrationsDir && ctx.dbDir) {
     ctx.migrationsDir = path.join(ctx.dbDir, "migrations")
   }
 
-  const client = new Client(
-    ctx.databaseUrl ??
-      getConnectionStringFromEnv({
-        fallbackDefaults: {
-          database: ctx.defaultDatabase,
-        },
-      })
-  )
-  await client.connect()
+  const client =
+    ctx.client ??
+    new Client(
+      ctx.databaseUrl ??
+        getConnectionStringFromEnv({
+          fallbackDefaults: {
+            database: ctx.defaultDatabase,
+          },
+        }),
+    )
+
+  // pglite compat
+  if ("connect" in client) {
+    await client.connect()
+  }
 
   let logger =
     debug.enabled || process.env.NODE_ENV !== "test"
@@ -75,7 +85,7 @@ export async function migrate(
         .includes("SyntaxError: Cannot use import statement outside a module")
     ) {
       console.log(
-        "Couldn't load migrations due to import issue, using esbuild-register to enable import..."
+        "Couldn't load migrations due to import issue, using esbuild-register to enable import...",
       )
       require("esbuild-register")
       await runMigrations()
@@ -84,7 +94,9 @@ export async function migrate(
     }
   }
 
-  await client.end()
+  if ("end" in client) {
+    await client.end()
+  }
 
   // debug only
   // console.log("Migrations completed")
