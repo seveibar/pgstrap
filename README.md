@@ -25,6 +25,7 @@ npm install pgstrap --save-dev
 ## Quick Start
 
 1. Initialize pgstrap in your project:
+
    ```bash
    npx pgstrap init
    ```
@@ -32,6 +33,7 @@ npm install pgstrap --save-dev
 2. This will set up the necessary configuration and scripts in your `package.json`.
 
 3. Create your first migration:
+
    ```bash
    npm run db:create-migration my-first-migration
    ```
@@ -39,6 +41,7 @@ npm install pgstrap --save-dev
 4. Edit the migration file in `src/db/migrations/`.
 
 5. Run the migration:
+
    ```bash
    npm run db:migrate
    ```
@@ -69,12 +72,60 @@ module.exports = {
 }
 ```
 
-## Best Practices
+## Writing Migrations
 
-1. **Version Control**: Always commit your migration files to version control.
-2. **Review Migrations**: Carefully review generated migrations before running them.
-3. **Test Migrations**: Run migrations in a test environment before applying to production.
-4. **Use TypeScript**: Leverage the generated types for type-safe database operations.
+Migrations in pgstrap are written using [node-pg-migrate](https://github.com/salsita/node-pg-migrate), which provides a powerful and flexible way to define database changes.
+
+To create a new migration:
+
+```bash
+npm run db:create-migration my-migration-name
+```
+
+This will create a new file in `src/db/migrations/` with a timestamp prefix.
+
+### Migration Structure
+
+A typical migration file looks like this:
+
+```typescript
+import { MigrationBuilder, ColumnDefinitions } from "node-pg-migrate"
+
+export const shorthands: ColumnDefinitions | undefined = undefined
+
+export async function up(pgm: MigrationBuilder): Promise<void> {
+  // Your migration code here
+}
+
+export async function down(pgm: MigrationBuilder): Promise<void> {
+  // Code to revert your migration (optional)
+}
+```
+
+### Example Migration
+
+Here's an example of a migration that creates a new table:
+
+```typescript
+export async function up(pgm: MigrationBuilder): Promise<void> {
+  pgm.createTable("users", {
+    id: "id",
+    username: { type: "text", notNull: true },
+    email: { type: "text", notNull: true, unique: true },
+    created_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("current_timestamp"),
+    },
+  })
+
+  pgm.createIndex("users", "username")
+}
+
+export async function down(pgm: MigrationBuilder): Promise<void> {
+  pgm.dropTable("users")
+}
+```
 
 ## Contributing
 
