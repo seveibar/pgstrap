@@ -1,44 +1,96 @@
 # pgstrap
 
-Bootstrapping utilities for Postgres/Typescript projects.
+[![npm version](https://badge.fury.io/js/pgstrap.svg)](https://badge.fury.io/js/pgstrap)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- Use Typescript
-- Put migrations in `[src]/db/migrations`
-- "Standard Shorthands" for uuids and `created_at` timestamps
-- Code to automatically run migrations in tests
-- Automatic zapatos/kysely type generation
-- Reset database and migrate scripts
-- Automatic `[src]/db/zapatos` which dumps the database types
-- Automatic `[src]/db/structure` which dumps the database structure
+pgstrap is a powerful bootstrapping utility for Postgres/TypeScript projects, designed to streamline your database management workflow and enhance type safety.
 
-This module encapsulates all that functionality into one, easy-to-use
-module.
+## Features
+
+- 🚀 Quick setup with TypeScript support
+- 📁 Organized migration structure in `[src]/db/migrations`
+- 🔧 "Standard Shorthands" for UUIDs and `created_at` timestamps
+- 🧪 Automated migration runs in tests
+- 🔄 Automatic type generation for Zapatos and Kysely
+- 🔁 Database reset and migration scripts
+- 📊 Automatic schema dumps with `[src]/db/zapatos`
+- 🏗️ Database structure dumps in `[src]/db/structure`
+
+## Installation
+
+```bash
+npm install pgstrap --save-dev
+```
+
+## Quick Start
+
+1. Initialize pgstrap in your project:
+   ```bash
+   npx pgstrap init
+   ```
+
+2. This will set up the necessary configuration and scripts in your `package.json`.
+
+3. Create your first migration:
+   ```bash
+   npm run db:create-migration my-first-migration
+   ```
+
+4. Edit the migration file in `src/db/migrations/`.
+
+5. Run the migration:
+   ```bash
+   npm run db:migrate
+   ```
+
+6. Generate types and structure:
+   ```bash
+   npm run db:generate
+   ```
 
 ## Usage
 
-### Scripts
+### Available Scripts
 
-- `pgstrap init` - Set up a project to use `pgstrap`
-- `pgstrap create-migration` - create new migration
-- `pgstrap reset` - drop database and recreate, then migrate
-- `pgstrap migrate` - migrate database
-- `pgstrap generate` - migrate database and generate new types and structure
+- `npm run db:migrate` - Run pending migrations
+- `npm run db:reset` - Drop and recreate the database, then run all migrations
+- `npm run db:generate` - Generate types and structure dumps
+- `npm run db:create-migration` - Create a new migration file
 
-### Config
+### Configuration
 
-By running `pgstrap init` you'll automatically get a config generated, here's
-what you can customize:
+After running `pgstrap init`, you'll find a `pgstrap.config.js` file in your project root. Customize it as needed:
 
-```ts
+```javascript
 module.exports = {
   defaultDatabase: "mydb",
-  schemas: ["main"],
-
-  // Directory to store migrations, structure and database utility files
-  dbDir: "./src/db", // optional
+  schemas: ["public"],
+  dbDir: "./src/db", // optional, defaults to "./src/db"
 }
 ```
 
-### Attributions
+## Best Practices
 
-- This project was originally developed as [seam-pgm](https://github.com/seamapi/seam-pgm) by Seam Labs Inc. in 2024
+1. **Version Control**: Always commit your migration files to version control.
+2. **Review Migrations**: Carefully review generated migrations before running them.
+3. **Test Migrations**: Run migrations in a test environment before applying to production.
+4. **Use TypeScript**: Leverage the generated types for type-safe database operations.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- This project was originally developed as [seam-pgm](https://github.com/seamapi/seam-pgm) by Seam Labs Inc. in 2024.
+- Special thanks to the Zapatos and Kysely projects for their excellent TypeScript database tools.
+
+## Support
+
+If you encounter any issues or have questions, please file an issue on the [GitHub repository](https://github.com/seveibar/pgstrap/issues).
+
+Happy coding with pgstrap! 🚀
