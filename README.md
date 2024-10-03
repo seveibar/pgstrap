@@ -41,4 +41,4 @@ module.exports = {
 
 ### Attributions
 
-- This project was originally developed as [seam-pgm](https://github.com/seamapi/seam-pgm)
+- This project was originally developed as [seam-pgm](https://github.com/seamapi/seam-pgm) by Seam Labs Inc. in 2024
