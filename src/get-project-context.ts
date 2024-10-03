@@ -1,18 +1,15 @@
 import fs from "fs"
 import path from "path"
+import { PgstrapConfig } from "./define-config"
 
-export type Context = {
+export interface Context extends PgstrapConfig {
   cwd: string
-  defaultDatabase: string
-  schemas: string[]
-
-  dbDir?: string
 }
 
 export const getProjectContext = async (): Promise<Context> => {
   if (!fs.existsSync(path.join(process.cwd(), "pgstrap.config.js"))) {
     throw new Error(
-      `You must have a pgstrap.config.js file in your project root`
+      `You must have a pgstrap.config.js file in your project root`,
     )
   }
 
