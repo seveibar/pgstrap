@@ -3,3 +3,4 @@ dist
 schema.sql
 schema-good.sql
 .vscode
+.aider*
