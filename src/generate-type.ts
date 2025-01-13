@@ -9,27 +9,27 @@ async function generateTypes() {
 
   // Create the table (replace with your actual table schema)
   await dbClient.query(`
-    CREATE TABLE your_table_name (
-      column1 TEXT,
-      column2 INTEGER
+    CREATE TABLE student (
+      name TEXT,
+      rollno INTEGER
     );
   `);
 
   // Insert some example data (optional)
   await dbClient.query(`
-    INSERT INTO your_table_name (column1, column2)
-    VALUES ('Sample data', 42);
+    INSERT INTO student (name, rollno)
+    VALUES ('seve', 42);
   `);
 
   // Query schema (adjust according to your table structure)
-  const schema = await dbClient.query('SELECT * FROM your_table_name LIMIT 1');
+  const schema = await dbClient.query('SELECT * FROM student LIMIT 1');
   console.log('Fetched schema:', schema);
 
   // Generate TypeScript types based on the schema
   const types = `// Generated Types
 type YourTable = {
-  column1: string;
-  column2: number;
+  name: string;
+  rollno: number;
 };`;
 
   try {
