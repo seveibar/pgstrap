@@ -3,18 +3,16 @@
 [![npm version](https://badge.fury.io/js/pgstrap.svg)](https://badge.fury.io/js/pgstrap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-pgstrap is a powerful bootstrapping utility for Postgres/TypeScript projects, designed to streamline your database management workflow and enhance type safety.
+pgstrap allows you to easily run typescript migrations or generate a directory that represents your database schemas with `table.sql` files. Run `pgstrap generate` to generate a directory with the structure of your postgres database schemas!
 
 ## Features
 
-- 🚀 Quick setup with TypeScript support
-- 📁 Organized migration structure in `[src]/db/migrations`
-- 🔧 "Standard Shorthands" for UUIDs and `created_at` timestamps
-- 🧪 Automated migration runs in tests
-- 🔄 Automatic type generation for Zapatos and Kysely
-- 🔁 Database reset and migration scripts
-- 📊 Automatic schema dumps with `[src]/db/zapatos`
-- 🏗️ Database structure dumps in `[src]/db/structure`
+- Migrations with TypeScript support
+- Organized migration structure in `[src]/db/migrations`
+- Database reset and migration scripts
+- Automatic typed schema files in `[src]/db/zapatos` (compatible with Zapatos and Kysely)
+- Database `table.sql` structure dumps in `[src]/db/structure`
+- Easily run migrations inside of tests
 
 ## Installation
 
