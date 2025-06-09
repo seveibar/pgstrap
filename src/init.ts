@@ -9,7 +9,7 @@ import getDbClientTemplate from "./templates/get-db-client.template"
 export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
   const { cwd } = ctx
   const pkg = JSON.parse(
-    fs.readFileSync(path.join(cwd, "package.json")).toString()
+    fs.readFileSync(path.join(cwd, "package.json")).toString(),
   )
 
   if (!pkg.scripts) pkg.scripts = {}
@@ -34,8 +34,8 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
           schemas: ["public"],
         },
         null,
-        2
-      )}`
+        2,
+      )}`,
     )
   }
 
@@ -43,7 +43,7 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
     mkdirpSync(path.join(cwd, "src", "db"))
     fs.writeFileSync(
       path.join(cwd, "src", "db", "kysely-types.ts"),
-      kyselyTypesTemplate
+      kyselyTypesTemplate,
     )
   }
 
@@ -51,7 +51,7 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
     mkdirpSync(path.join(cwd, "src", "db"))
     fs.writeFileSync(
       path.join(cwd, "src", "db", "get-db-client.ts"),
-      getDbClientTemplate
+      getDbClientTemplate,
     )
   }
 

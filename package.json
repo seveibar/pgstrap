@@ -7,7 +7,9 @@
   "main": "dist/index.cjs",
   "scripts": {
     "test": "npm run build && ava",
-    "build": "tsup ./src/index.ts ./src/cli.ts --outDir ./dist --dts --sourcemap inline"
+    "build": "tsup ./src/index.ts ./src/cli.ts --outDir ./dist --dts --sourcemap inline",
+    "format": "biome format . --write",
+    "format:check": "biome format ."
   },
   "bin": {
     "pgstrap": "./dist/cli.cjs"
@@ -32,6 +34,7 @@
     "zapatos": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.5.3",
     "@types/debug": "^4.1.8",
     "@types/yargs": "^17.0.32",
     "ava": "^5.3.1",

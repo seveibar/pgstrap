@@ -18,16 +18,9 @@
     "module": "ES2022",
     "noImplicitAny": false,
     "noEmit": true,
-    "lib": [
-      "es2022"
-    ]
+    "lib": ["es2022"]
   },
   // Include the necessary files for your project
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

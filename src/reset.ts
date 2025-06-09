@@ -23,7 +23,7 @@ export const reset = async (ctx: Context) => {
 
   if (database === "postgres") {
     throw new Error(
-      `You default database cannot be "postgres" when using pgstrap`
+      `You default database cannot be "postgres" when using pgstrap`,
     )
   }
 
