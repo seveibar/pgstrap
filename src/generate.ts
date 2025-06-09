@@ -29,7 +29,7 @@ export const generate = async ({
           include: "*",
           exclude: [],
         },
-      ])
+      ]),
     ),
     outDir: dbDir,
   })

@@ -2,7 +2,6 @@
 import yargs from "yargs"
 import { migrate, reset, generate, createMigration, initPgstrap } from "./"
 import { getProjectContext } from "./get-project-context"
-
 ;(yargs as any)
   .command("init", "initialize pgstrap", {}, async () => {
     await initPgstrap({
@@ -21,7 +20,7 @@ import { getProjectContext } from "./get-project-context"
     async (argv) => {
       const ctx = await getProjectContext()
       createMigration(argv.name as string, ctx)
-    }
+    },
   )
   .command("reset", "resets the database", {}, async () => {
     await reset(await getProjectContext())
@@ -38,6 +37,6 @@ import { getProjectContext } from "./get-project-context"
     {},
     async () => {
       generate(await getProjectContext())
-    }
+    },
   )
   .parse()
