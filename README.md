@@ -57,6 +57,7 @@ npm install pgstrap --save-dev
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
 - `npm run db:generate` - Generate types and structure dumps
 - `npm run db:create-migration` - Create a new migration file
+- `pgstrap generate --pglite` - Run migrations and generate schema using an in-memory PGlite instance
 
 ### Configuration
 

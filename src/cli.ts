@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 import yargs from "yargs"
-import { migrate, reset, generate, createMigration, initPgstrap } from "./"
+import {
+  migrate,
+  reset,
+  generate,
+  createMigration,
+  initPgstrap,
+  generateWithPglite,
+} from "./"
 import { getProjectContext } from "./get-project-context"
 ;(yargs as any)
   .command("init", "initialize pgstrap", {}, async () => {
@@ -34,9 +41,20 @@ import { getProjectContext } from "./get-project-context"
   .command(
     "generate",
     "generate types and sql documentation from database",
-    {},
-    async () => {
-      generate(await getProjectContext())
+    (yargs) => {
+      yargs.option("pglite", {
+        type: "boolean",
+        describe: "use pglite instead of connecting to Postgres",
+        default: false,
+      })
+    },
+    async (argv) => {
+      const ctx = await getProjectContext()
+      if (argv.pglite) {
+        await generateWithPglite(ctx)
+      } else {
+        await generate(ctx)
+      }
     },
   )
   .parse()
