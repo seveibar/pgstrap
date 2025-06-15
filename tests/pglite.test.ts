@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite"
-import test from "ava"
+import { test, expect } from "bun:test"
 import { migrate } from "../src/migrate"
 import fs from "fs"
 import path from "path"
 
-test("migration of a pglite db works", async (t) => {
+test("migration of a pglite db works", async () => {
   const client = new PGlite()
 
   // Create a temporary migration file
@@ -43,12 +43,8 @@ test("migration of a pglite db works", async (t) => {
 
   // Verify that the table was created
   const result = await client.query("SELECT * FROM test_table")
-  t.is(result.fields.length, 3, "Table should have 3 columns")
-  t.deepEqual(
-    result.fields.map((f) => f.name),
-    ["id", "name", "created_at"],
-    "Table should have correct column names",
-  )
+  expect(result.fields.length).toBe(3)
+  expect(result.fields.map((f) => f.name)).toEqual(["id", "name", "created_at"])
 
   // Clean up
   fs.rmSync(migrationsDir, { recursive: true, force: true })

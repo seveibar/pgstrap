@@ -6,7 +6,7 @@
   "description": "Bootstrap patterns for Typescript/Postgres projects",
   "main": "dist/index.cjs",
   "scripts": {
-    "test": "npm run build && ava",
+    "test": "bun test",
     "build": "tsup ./src/index.ts ./src/cli.ts --outDir ./dist --dts --sourcemap inline",
     "format": "biome format . --write",
     "format:check": "biome format ."
@@ -22,7 +22,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@electric-sql/pglite": "^0.2.10",
+    "@electric-sql/pglite": "^0.3.3",
     "pg-schema-dump": "^2.0.2",
     "yargs": "^17.7.2"
   },
@@ -37,8 +37,6 @@
     "@biomejs/biome": "^1.5.3",
     "@types/debug": "^4.1.8",
     "@types/yargs": "^17.0.32",
-    "ava": "^5.3.1",
-    "ava-postgres": "^4.0.5",
     "esbuild": "^0.18.16",
     "esbuild-register": "^3.4.2",
     "esbuild-runner": "^2.2.2",
