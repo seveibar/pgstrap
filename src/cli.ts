@@ -34,9 +34,11 @@ import { getProjectContext } from "./get-project-context"
   .command(
     "generate",
     "generate types and sql documentation from database",
-    {},
-    async () => {
-      generate(await getProjectContext())
+    (yargs) => {
+      yargs.option("pglite", { type: "boolean", default: false })
+    },
+    async (argv) => {
+      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
     },
   )
   .parse()
