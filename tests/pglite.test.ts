@@ -28,7 +28,7 @@ test("migration of a pglite db works", async (t) => {
     }
   `
   fs.writeFileSync(
-    path.join(migrationsDir, "001_create_test_table.js"),
+    path.join(migrationsDir, "001_create_test_table.cjs"),
     migrationContent,
   )
 
