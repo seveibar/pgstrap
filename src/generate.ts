@@ -23,7 +23,7 @@ export const generate = async ({
 
   if (pglite) {
     const { PGlite } = await import("@electric-sql/pglite")
-    const { fromNodeSocket, closeSignal } = await import("pg-gateway/node")
+    const { fromNodeSocket } = await import("pg-gateway/node")
     const net = await import("node:net")
 
     const db = new PGlite()
@@ -47,23 +47,20 @@ export const generate = async ({
         },
         async onStartup() {
           await (db as any).waitReady
-          return false
         },
         async onMessage(data: Uint8Array, { isAuthenticated }: any) {
-          if (!isAuthenticated) return false
+          if (!isAuthenticated) return
           try {
-            const [[, responseData]] = await (db as any).execProtocol(data)
-            connection.sendData(responseData)
-          } catch (err) {
-            connection.sendError(err as any)
-            connection.sendReadyForQuery()
+            const { data: responseData } = await (db as any).execProtocol(data)
+            return responseData
+          } catch {
+            return undefined
           }
-          return true
         },
       })
     })
 
-    await new Promise((res) => server.listen(0, res))
+    await new Promise<void>((resolve) => server.listen(0, resolve))
     const port = (server.address() as any).port
     const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
