@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@electric-sql/pglite": "^0.3.3",
+    "pg-gateway": "^0.3.0-beta.4",
     "pg-schema-dump": "^2.0.2",
     "yargs": "^17.7.2"
   },

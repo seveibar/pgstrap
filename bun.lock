@@ -5,6 +5,7 @@
       "name": "pgstrap",
       "dependencies": {
         "@electric-sql/pglite": "^0.3.3",
+        "pg-gateway": "^0.3.0-beta.4",
         "pg-schema-dump": "^2.0.2",
         "yargs": "^17.7.2",
       },
@@ -298,6 +299,8 @@
     "pg-connection-from-env": ["pg-connection-from-env@1.1.0", "", { "dependencies": { "pg-connection-string": "^2.5.0" } }, "sha512-Bwjd2GU9TXQhNf3ah4j9Q/0ttOi5z0537Us9hS7C7QjBuNLJnkZ6PboGY2uTrhZ+uEriKNYqjXNFB1LPpKg88w=="],
 
     "pg-connection-string": ["pg-connection-string@2.6.2", "", {}, "sha512-ch6OwaeaPYcova4kKZ15sbJ2hKb/VP48ZD2gE7i1J+L4MspCtBMAx8nMgz7bksc7IojCIIWuEhHibSMFH8m8oA=="],
+
+    "pg-gateway": ["pg-gateway@0.3.0-beta.4", "", {}, "sha512-CTjsM7Z+0Nx2/dyZ6r8zRsc3f9FScoD5UAOlfUx1Fdv/JOIWvRbF7gou6l6vP+uypXQVoYPgw8xZDXgMGvBa4Q=="],
 
     "pg-int8": ["pg-int8@1.0.1", "", {}, "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw=="],
 
