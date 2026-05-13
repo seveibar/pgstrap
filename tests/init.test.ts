@@ -25,6 +25,6 @@ test("initPgstrap writes scripts to package.json", async () => {
   )
   expect(pkg.scripts["db:migrate"]).toBe("pgstrap migrate")
   expect(pkg.scripts["db:reset"]).toBe("pgstrap reset")
-  expect(pkg.scripts["db:generate"]).toBe("pgstrap generate")
+  expect(pkg.scripts["db:generate"]).toBe("pgstrap generate --pglite")
   expect(pkg.scripts["db:create-migration"]).toBe("pgstrap create-migration")
 })
