@@ -55,7 +55,8 @@ npm install pgstrap --save-dev
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` - Generate types and structure dumps with an in-memory PGlite database, so Postgres does not need to be running in the background.
+- `pgstrap generate` - Generate types and structure dumps against your configured Postgres database.
 - `npm run db:create-migration` - Create a new migration file
 
 ### Configuration
