@@ -25,6 +25,16 @@ test("initPgstrap writes scripts to package.json", async () => {
   )
   expect(pkg.scripts["db:migrate"]).toBe("pgstrap migrate")
   expect(pkg.scripts["db:reset"]).toBe("pgstrap reset")
-  expect(pkg.scripts["db:generate"]).toBe("pgstrap generate")
+  // db:generate defaults to --pglite so users don't need Postgres running
+  // in the background to regenerate types/structure. See issue #2.
+  expect(pkg.scripts["db:generate"]).toBe("pgstrap generate --pglite")
   expect(pkg.scripts["db:create-migration"]).toBe("pgstrap create-migration")
+})
+
+test("initPgstrap defaults db:generate to PGlite (no Postgres needed)", async () => {
+  await initPgstrap({ cwd: testDir })
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(testDir, "package.json"), "utf8"),
+  )
+  expect(pkg.scripts["db:generate"]).toContain("--pglite")
 })

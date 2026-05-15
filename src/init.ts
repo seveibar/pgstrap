@@ -16,7 +16,10 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
 
   pkg.scripts["db:migrate"] = "pgstrap migrate"
   pkg.scripts["db:reset"] = "pgstrap reset"
-  pkg.scripts["db:generate"] = "pgstrap generate"
+  // Default `db:generate` to PGlite so `bun run db:generate` doesn't require
+  // a Postgres instance running in the background. To generate against a real
+  // Postgres connection (e.g. DATABASE_URL), drop `--pglite` from this script.
+  pkg.scripts["db:generate"] = "pgstrap generate --pglite"
   pkg.scripts["db:create-migration"] = "pgstrap create-migration"
 
   if (!pkg.devDependencies) pkg.devDependencies = {}
