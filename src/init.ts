@@ -16,7 +16,7 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
 
   pkg.scripts["db:migrate"] = "pgstrap migrate"
   pkg.scripts["db:reset"] = "pgstrap reset"
-  pkg.scripts["db:generate"] = "pgstrap generate"
+  pkg.scripts["db:generate"] = "pgstrap generate --pglite"
   pkg.scripts["db:create-migration"] = "pgstrap create-migration"
 
   if (!pkg.devDependencies) pkg.devDependencies = {}
