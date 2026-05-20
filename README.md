@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/pgstrap.svg)](https://badge.fury.io/js/pgstrap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-pgstrap allows you to easily run typescript migrations or generate a directory that represents your database schemas with `table.sql` files. Run `pgstrap generate` to generate a directory with the structure of your postgres database schemas!
+pgstrap allows you to easily run typescript migrations or generate a directory that represents your database schemas with `table.sql` files. Run `pgstrap generate` to generate a directory with the structure of your postgres database schemas. By default, generation runs migrations against an in-memory PGlite database, so a local Postgres server is not required.
 
 ## Features
 
@@ -44,7 +44,7 @@ npm install pgstrap --save-dev
    npm run db:migrate
    ```
 
-6. Generate types and structure:
+6. Generate types and structure without needing a local Postgres server:
    ```bash
    npm run db:generate
    ```
@@ -55,7 +55,7 @@ npm install pgstrap --save-dev
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` - Generate types and structure dumps against an in-memory PGlite instance, so a local Postgres server is not required. Use `pgstrap generate --no-pglite` if you want to generate from `DATABASE_URL` instead.
 - `npm run db:create-migration` - Create a new migration file
 
 ### Configuration
