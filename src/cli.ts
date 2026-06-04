@@ -29,7 +29,7 @@ import { getProjectContext } from "./get-project-context"
     process.exit(0)
   })
   .command("migrate", "migrates the database", {}, async () => {
-    migrate(await getProjectContext())
+    await migrate(await getProjectContext())
   })
   .command(
     "generate",
@@ -38,7 +38,7 @@ import { getProjectContext } from "./get-project-context"
       yargs.option("pglite", { type: "boolean", default: false })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
     },
   )
   .parse()
