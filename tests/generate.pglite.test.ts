@@ -13,35 +13,60 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
+const postgresEnvKeys = [
+  "DATABASE_URL",
+  "PGHOST",
+  "PGPORT",
+  "PGDATABASE",
+  "PGUSER",
+  "PGPASSWORD",
+]
+
+test("generate without postgres env uses pglite for migrations and dumps structure", async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
   const migrationsDir = path.join(tmp, "migrations")
+  const previousEnv: Record<string, string | undefined> = {}
+
+  for (const key of postgresEnvKeys) {
+    previousEnv[key] = process.env[key]
+  }
+
   fs.mkdirSync(migrationsDir, { recursive: true })
   fs.writeFileSync(
     path.join(migrationsDir, "001_create_table.js"),
     migrationFile,
   )
 
-  await generate({
-    schemas: ["public"],
-    defaultDatabase: "postgres",
-    dbDir: path.join(tmp, "db"),
-    migrationsDir,
-    pglite: true,
-  })
+  try {
+    for (const key of postgresEnvKeys) {
+      delete process.env[key]
+    }
 
-  const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
-  const structureDir = path.join(
-    tmp,
-    "db",
-    "structure",
-    "public",
-    "tables",
-    "foo",
-  )
+    await generate({
+      schemas: ["public"],
+      defaultDatabase: "postgres",
+      dbDir: path.join(tmp, "db"),
+      migrationsDir,
+    })
 
-  expect(fs.existsSync(zapatosFile)).toBe(true)
-  expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+    const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+    const structureDir = path.join(
+      tmp,
+      "db",
+      "structure",
+      "public",
+      "tables",
+      "foo",
+    )
 
-  fs.rmSync(tmp, { recursive: true, force: true })
+    expect(fs.existsSync(zapatosFile)).toBe(true)
+    expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
 })
