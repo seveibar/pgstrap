@@ -1,0 +1,23 @@
+{
+  "name": "pgstrap",
+  "version": "0.1.0",
+  "description": "Generate TypeScript types from PostgreSQL schemas using PGlite — no running Postgres required",
+  "type": "module",
+  "bin": {
+    "pgstrap": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "db:generate": "bun run src/cli.ts generate",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
