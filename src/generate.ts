@@ -1,117 +1,262 @@
-import * as zg from "zapatos/generate"
-import {
-  getConnectionStringFromEnv,
-  getPgConnectionFromEnv,
-} from "pg-connection-from-env"
-import { Context } from "./get-project-context"
-import { dumpTree } from "pg-schema-dump"
-import path from "path"
-import { migrate } from "./migrate"
+import { PGlite } from "@electric-sql/pglite";
+import * as fs from "fs";
+import * as path from "path";
 
-export const generate = async ({
-  schemas,
-  defaultDatabase,
-  dbDir,
-  pglite = false,
-  migrationsDir,
-}: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
-  pglite?: boolean
-  migrationsDir?: string
-}) => {
-  dbDir = dbDir ?? "./src/db"
-  migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
+export interface GenerateOptions {
+  migrationsDir: string;
+  output: string;
+  schema?: string;
+}
 
-  if (pglite) {
-    const { PGlite } = await import("@electric-sql/pglite")
-    const { fromNodeSocket } = await import("pg-gateway/node")
-    const net = await import("node:net")
+interface ColumnInfo {
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  udt_name: string;
+  is_nullable: string;
+  column_default: string | null;
+}
 
-    const db = new PGlite()
+interface EnumInfo {
+  enum_name: string;
+  enum_value: string;
+}
 
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
-    const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
-        serverVersion: "16.3 (PGlite)",
-        auth: {
-          method: "password",
-          validateCredentials: ({ username, password }: any) =>
-            username === "postgres" && password === "postgres",
-          getClearTextPassword: () => "postgres",
-        },
-        async onStartup() {
-          await (db as any).waitReady
-        },
-        async onMessage(data: Uint8Array, { isAuthenticated }: any) {
-          if (!isAuthenticated) return
-          try {
-            const { data: responseData } = await (db as any).execProtocol(data)
-            return responseData
-          } catch {
-            return undefined
-          }
-        },
-      })
-    })
-
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
-
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
-
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
-
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
-    return
+function pgTypeToTsType(dataType: string, udtName: string): string {
+  // Handle arrays
+  if (dataType === "ARRAY") {
+    const baseType = udtName.startsWith("_") ? udtName.slice(1) : udtName;
+    return `${pgTypeToTsType(baseType, baseType)}[]`;
   }
 
-  await zg.generate({
-    db: {
-      connectionString: getConnectionStringFromEnv({
-        fallbackDefaults: {
-          database: defaultDatabase,
-        },
-      }),
-    },
-    schemas: Object.fromEntries(
-      schemas.map((s) => [
-        s,
-        {
-          include: "*",
-          exclude: [],
-        },
-      ]),
-    ),
-    outDir: dbDir,
-  })
+  switch (dataType.toLowerCase()) {
+    case "integer":
+    case "int":
+    case "int2":
+    case "int4":
+    case "int8":
+    case "bigint":
+    case "smallint":
+    case "numeric":
+    case "decimal":
+    case "real":
+    case "double precision":
+    case "float4":
+    case "float8":
+    case "money":
+      return "number";
+    case "text":
+    case "varchar":
+    case "character varying":
+    case "character":
+    case "char":
+    case "bpchar":
+    case "name":
+    case "citext":
+      return "string";
+    case "boolean":
+    case "bool":
+      return "boolean";
+    case "json":
+    case "jsonb":
+      return "Record<string, any>";
+    case "timestamp":
+    case "timestamp without time zone":
+    case "timestamp with time zone":
+    case "timestamptz":
+    case "date":
+    case "time":
+    case "time without time zone":
+    case "time with time zone":
+    case "timetz":
+      return "Date";
+    case "uuid":
+      return "string";
+    case "bytea":
+      return "Buffer";
+    case "void":
+      return "void";
+    case "user-defined":
+      return udtName; // Will be replaced with enum type if applicable
+    default:
+      return "string";
+  }
+}
 
-  await dumpTree({
-    targetDir: path.join(dbDir, "structure"),
-    defaultDatabase,
-    schemas,
-  })
+function toPascalCase(str: string): string {
+  return str
+    .split(/[_\s-]+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join("");
+}
+
+function toCamelCase(str: string): string {
+  const pascal = toPascalCase(str);
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+}
+
+async function getMigrationFiles(migrationsDir: string): Promise<string[]> {
+  if (!fs.existsSync(migrationsDir)) {
+    throw new Error(`Migrations directory not found: ${migrationsDir}`);
+  }
+
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => path.join(migrationsDir, f));
+
+  return files;
+}
+
+export async function generate(options: GenerateOptions): Promise<void> {
+  const { migrationsDir, output, schema = "public" } = options;
+
+  console.log("Starting PGlite instance...");
+  const db = new PGlite();
+
+  // Run all migrations
+  const migrationFiles = await getMigrationFiles(migrationsDir);
+
+  if (migrationFiles.length === 0) {
+    console.warn(`No SQL migration files found in: ${migrationsDir}`);
+  }
+
+  console.log(`Running ${migrationFiles.length} migration(s)...`);
+  for (const file of migrationFiles) {
+    const sql = fs.readFileSync(file, "utf-8");
+    console.log(`  Applying: ${path.basename(file)}`);
+    try {
+      await db.exec(sql);
+    } catch (err: any) {
+      throw new Error(
+        `Failed to apply migration ${path.basename(file)}: ${err.message}`
+      );
+    }
+  }
+
+  // Introspect enums
+  const enumResult = await db.query<EnumInfo>(`
+    SELECT
+      t.typname AS enum_name,
+      e.enumlabel AS enum_value
+    FROM pg_type t
+    JOIN pg_enum e ON t.oid = e.enumtypid
+    JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = $1
+    ORDER BY t.typname, e.enumsortorder
+  `, [schema]);
+
+  // Group enum values
+  const enumMap = new Map<string, string[]>();
+  for (const row of enumResult.rows) {
+    if (!enumMap.has(row.enum_name)) {
+      enumMap.set(row.enum_name, []);
+    }
+    enumMap.get(row.enum_name)!.push(row.enum_value);
+  }
+
+  // Introspect columns
+  const columnResult = await db.query<ColumnInfo>(`
+    SELECT
+      c.table_name,
+      c.column_name,
+      c.data_type,
+      c.udt_name,
+      c.is_nullable,
+      c.column_default
+    FROM information_schema.columns c
+    WHERE c.table_schema = $1
+      AND c.table_name NOT LIKE 'pg_%'
+    ORDER BY c.table_name, c.ordinal_position
+  `, [schema]);
+
+  // Group columns by table
+  const tableMap = new Map<string, ColumnInfo[]>();
+  for (const row of columnResult.rows) {
+    if (!tableMap.has(row.table_name)) {
+      tableMap.set(row.table_name, []);
+    }
+    tableMap.get(row.table_name)!.push(row);
+  }
+
+  if (tableMap.size === 0) {
+    console.warn("No tables found in schema. Output will be empty.");
+  }
+
+  // Generate TypeScript output
+  const lines: string[] = [];
+  lines.push("// This file is auto-generated by pgstrap. Do not edit manually.");
+  lines.push("// Generated at: " + new Date().toISOString());
+  lines.push("");
+
+  // Generate enum types
+  if (enumMap.size > 0) {
+    lines.push("// Enums");
+    for (const [enumName, values] of enumMap) {
+      const typeName = toPascalCase(enumName);
+      lines.push(`export type ${typeName} = ${values.map((v) => `"${v}"`).join(" | ")};`);
+    }
+    lines.push("");
+  }
+
+  // Generate table interfaces
+  const tableNames: string[] = [];
+  for (const [tableName, columns] of tableMap) {
+    const interfaceName = toPascalCase(tableName);
+    tableNames.push(tableName);
+    lines.push(`export interface ${interfaceName} {`);
+    for (const col of columns) {
+      let tsType: string;
+      if (col.data_type === "USER-DEFINED" || col.data_type === "user-defined") {
+        // Check if it's an enum
+        const udtBase = col.udt_name.startsWith("_")
+          ? col.udt_name.slice(1)
+          : col.udt_name;
+        if (enumMap.has(udtBase)) {
+          tsType = toPascalCase(udtBase);
+          if (col.udt_name.startsWith("_")) {
+            tsType = `${tsType}[]`;
+          }
+        } else {
+          tsType = pgTypeToTsType(col.data_type, col.udt_name);
+        }
+      } else {
+        tsType = pgTypeToTsType(col.data_type, col.udt_name);
+      }
+
+      const isNullable = col.is_nullable === "YES";
+      const hasDefault = col.column_default !== null;
+      const optional = isNullable || hasDefault ? "?" : "";
+      const nullUnion = isNullable ? " | null" : "";
+
+      lines.push(`  ${col.column_name}${optional}: ${tsType}${nullUnion};`);
+    }
+    lines.push("}");
+    lines.push("");
+  }
+
+  // Generate a DB type that maps table names to their row types
+  if (tableNames.length > 0) {
+    lines.push("export interface DB {");
+    for (const tableName of tableNames) {
+      const interfaceName = toPascalCase(tableName);
+      lines.push(`  ${tableName}: ${interfaceName};`);
+    }
+    lines.push("}");
+    lines.push("");
+  }
+
+  const outputContent = lines.join("\n");
+
+  // Ensure output directory exists
+  const outputDir = path.dirname(output);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  fs.writeFileSync(output, outputContent, "utf-8");
+  console.log(`Types generated successfully: ${output}`);
+
+  await db.close();
 }
