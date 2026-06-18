@@ -1,5 +1,2 @@
-export * from "./migrate"
-export * from "./reset"
-export * from "./generate"
-export * from "./init"
-export * from "./define-config"
+export { generate } from "./generate";
+export { createPgliteWithMigrations, runQueryOnPglite } from "./pglite-runner";
