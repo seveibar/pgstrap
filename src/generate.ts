@@ -27,15 +27,6 @@ export const generate = async ({
     const net = await import("node:net")
 
     const db = new PGlite()
-
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
     const server = net.createServer(async (socket) => {
       const connection = await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
@@ -60,32 +51,47 @@ export const generate = async ({
       })
     })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
-
     const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+    try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
+      })
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+      await new Promise<void>((resolve) => server.listen(0, resolve))
+      const port = (server.address() as any).port
+      const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
+      process.env.DATABASE_URL = connectionString
 
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await zg.generate({
+        db: {
+          connectionString,
+        },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
+
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => (err ? reject(err) : resolve()))
+        })
+      }
+      await (db as any).close?.()
+      if (prevDbUrl === undefined) delete process.env.DATABASE_URL
+      else process.env.DATABASE_URL = prevDbUrl
+    }
     return
   }
 
