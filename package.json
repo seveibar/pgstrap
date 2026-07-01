@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@electric-sql/pglite": "^0.3.3",
+    "debug": "^4.3.4",
     "pg-gateway": "^0.3.0-beta.4",
     "pg-schema-dump": "^2.0.2",
     "yargs": "^17.7.2"
@@ -47,6 +48,7 @@
     "pg": "^8.11.1",
     "pg-connection-from-env": "^1.1.0",
     "tsup": "^7.1.0",
+    "typescript": "^5.1.6",
     "zapatos": "^6.1.4"
   }
 }
