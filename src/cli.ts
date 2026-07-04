@@ -35,10 +35,17 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", {
+        type: "boolean",
+        describe:
+          "Force PGlite generation. By default pgstrap uses Postgres when available and falls back to PGlite.",
+      })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({
+        ...(await getProjectContext()),
+        pglite: typeof argv.pglite === "boolean" ? argv.pglite : "auto",
+      })
     },
   )
   .parse()
