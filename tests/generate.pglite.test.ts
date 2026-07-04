@@ -45,3 +45,42 @@ test("generate with pglite runs migrations and dumps structure", async () => {
 
   fs.rmSync(tmp, { recursive: true, force: true })
 })
+
+test("generate falls back to pglite when postgres is unavailable", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
+  const migrationsDir = path.join(tmp, "migrations")
+  fs.mkdirSync(migrationsDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(migrationsDir, "001_create_table.js"),
+    migrationFile,
+  )
+
+  const prevDbUrl = process.env.DATABASE_URL
+  process.env.DATABASE_URL = "postgres://postgres:postgres@127.0.0.1:1/postgres"
+
+  try {
+    await generate({
+      schemas: ["public"],
+      defaultDatabase: "postgres",
+      dbDir: path.join(tmp, "db"),
+      migrationsDir,
+    })
+
+    const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+    const structureDir = path.join(
+      tmp,
+      "db",
+      "structure",
+      "public",
+      "tables",
+      "foo",
+    )
+
+    expect(fs.existsSync(zapatosFile)).toBe(true)
+    expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  } finally {
+    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
+    else process.env.DATABASE_URL = prevDbUrl
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
