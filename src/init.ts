@@ -1,10 +1,10 @@
-import type { Context } from "./get-project-context"
-import path from "path"
 import * as fs from "fs"
-import pgstrapPackage from "../package.json"
-import kyselyTypesTemplate from "./templates/kysely-types.template"
+import path from "path"
 import { mkdirpSync } from "mkdirp"
+import pgstrapPackage from "../package.json"
+import type { Context } from "./get-project-context"
 import getDbClientTemplate from "./templates/get-db-client.template"
+import kyselyTypesTemplate from "./templates/kysely-types.template"
 
 export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
   const { cwd } = ctx
@@ -16,7 +16,7 @@ export const initPgstrap = async (ctx: Pick<Context, "cwd">) => {
 
   pkg.scripts["db:migrate"] = "pgstrap migrate"
   pkg.scripts["db:reset"] = "pgstrap reset"
-  pkg.scripts["db:generate"] = "pgstrap generate"
+  pkg.scripts["db:generate"] = "pgstrap generate --pglite"
   pkg.scripts["db:create-migration"] = "pgstrap create-migration"
 
   if (!pkg.devDependencies) pkg.devDependencies = {}
