@@ -35,10 +35,12 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      // Default to PGlite so `db:generate` works without a running Postgres.
+      // Pass --no-pglite to generate against DATABASE_URL / local Postgres.
+      yargs.option("pglite", { type: "boolean", default: true })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      generate({ ...(await getProjectContext()), pglite: argv.pglite !== false })
     },
   )
   .parse()
