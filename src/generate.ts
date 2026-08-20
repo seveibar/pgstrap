@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -67,25 +67,27 @@ export const generate = async ({
     const prevDbUrl = process.env.DATABASE_URL
     process.env.DATABASE_URL = connectionString
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+    try {
+      await zg.generate({
+        db: {
+          connectionString,
+        },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      server.close()
+      if (prevDbUrl === undefined) delete process.env.DATABASE_URL
+      else process.env.DATABASE_URL = prevDbUrl
+    }
     return
   }
 
