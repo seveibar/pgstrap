@@ -43,7 +43,10 @@ cli
       yargs.option("pglite", { type: "boolean", default: true })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: argv.pglite !== false })
+      generate({
+        ...(await getProjectContext()),
+        pglite: argv.pglite !== false,
+      })
     },
   )
   .parse()
