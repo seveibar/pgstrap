@@ -26,16 +26,7 @@ export const generate = async ({
     const { fromNodeSocket } = await import("pg-gateway/node")
     const net = await import("node:net")
 
-    const db = new PGlite()
-
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
+const db = new PGlite(); await migrate({ client: db as any, migrationsDir, defaultDatabase, cwd: process.cwd(), schemas });
     const server = net.createServer(async (socket) => {
       const connection = await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
