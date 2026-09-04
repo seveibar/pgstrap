@@ -13,8 +13,10 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
+test("generate defaults to pglite without requiring live postgres", async () => {
+  const tmp = fs.mkdtempSync(
+    path.join(os.tmpdir(), "pgstrap-generate-default-"),
+  )
   const migrationsDir = path.join(tmp, "migrations")
   fs.mkdirSync(migrationsDir, { recursive: true })
   fs.writeFileSync(
@@ -27,7 +29,6 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     defaultDatabase: "postgres",
     dbDir: path.join(tmp, "db"),
     migrationsDir,
-    pglite: true,
   })
 
   const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
