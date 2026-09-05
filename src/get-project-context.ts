@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { pathToFileURL } from "node:url"
 import { PgstrapConfig } from "./define-config"
 
 export interface Context extends PgstrapConfig {
@@ -13,7 +14,8 @@ export const getProjectContext = async (): Promise<Context> => {
     )
   }
 
-  const config = await import(path.join(process.cwd(), "pgstrap.config.js"))
+  const configUrl = pathToFileURL(path.join(process.cwd(), "pgstrap.config.js"))
+  const config = await import(configUrl.href)
 
   return {
     cwd: process.cwd(),
