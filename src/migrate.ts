@@ -58,9 +58,10 @@ export async function migrate(
         }
 
   const runMigrations = () =>
-    // some es import bug when it's built- something with interop
+    // v9 exports runner by name; older versions use a CJS/default export.
     (
-      (nodePgMigrateModule as any).default.default ??
+      (nodePgMigrateModule as any).runner ??
+      (nodePgMigrateModule as any).default?.default ??
       nodePgMigrateModule.default
     )({
       dbClient: client,
