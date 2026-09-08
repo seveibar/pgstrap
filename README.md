@@ -38,15 +38,15 @@ npm install pgstrap --save-dev
 
 4. Edit the migration file in `src/db/migrations/`.
 
-5. Run the migration:
+5. Generate types and structure directly from migrations (no running PostgreSQL server required):
 
-   ```bash
-   npm run db:migrate
-   ```
-
-6. Generate types and structure:
    ```bash
    npm run db:generate
+   ```
+
+6. When ready, apply migrations to your running PostgreSQL database:
+   ```bash
+   npm run db:migrate
    ```
 
 ## Usage
@@ -55,7 +55,7 @@ npm install pgstrap --save-dev
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` - Generate types and structure dumps from migrations using a temporary in-memory PGlite database by default. PostgreSQL does not need to be running. Use `pgstrap generate --no-pglite` to generate from your configured PostgreSQL database instead (for example, when migrations require extensions unavailable in PGlite).
 - `npm run db:create-migration` - Create a new migration file
 
 ### Configuration
