@@ -13,35 +13,39 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
-  const migrationsDir = path.join(tmp, "migrations")
-  fs.mkdirSync(migrationsDir, { recursive: true })
-  fs.writeFileSync(
-    path.join(migrationsDir, "001_create_table.js"),
-    migrationFile,
-  )
+test.each([undefined, true])(
+  "generate with pglite=%s runs migrations and dumps structure",
+  async (pglite) => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
+    const migrationsDir = path.join(tmp, "migrations")
+    fs.mkdirSync(migrationsDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(migrationsDir, "001_create_table.js"),
+      migrationFile,
+    )
 
-  await generate({
-    schemas: ["public"],
-    defaultDatabase: "postgres",
-    dbDir: path.join(tmp, "db"),
-    migrationsDir,
-    pglite: true,
-  })
+    await generate({
+      schemas: ["public"],
+      defaultDatabase: "postgres",
+      dbDir: path.join(tmp, "db"),
+      migrationsDir,
+      pglite,
+    })
 
-  const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
-  const structureDir = path.join(
-    tmp,
-    "db",
-    "structure",
-    "public",
-    "tables",
-    "foo",
-  )
+    const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+    const structureDir = path.join(
+      tmp,
+      "db",
+      "structure",
+      "public",
+      "tables",
+      "foo",
+    )
 
-  expect(fs.existsSync(zapatosFile)).toBe(true)
-  expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+    expect(fs.existsSync(zapatosFile)).toBe(true)
+    expect(fs.readFileSync(zapatosFile, "utf8")).toContain("namespace foo")
+    expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
 
-  fs.rmSync(tmp, { recursive: true, force: true })
-})
+    fs.rmSync(tmp, { recursive: true, force: true })
+  },
+)
