@@ -28,16 +28,11 @@ export const generate = async ({
 
     const db = new PGlite()
 
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
-    const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
+    const sockets = new Set<import("node:net").Socket>()
+    const server = net.createServer((socket) => {
+      sockets.add(socket)
+      socket.once("close", () => sockets.delete(socket))
+      void fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
         auth: {
           method: "password",
@@ -46,46 +41,73 @@ export const generate = async ({
           getClearTextPassword: () => "postgres",
         },
         async onStartup() {
-          await (db as any).waitReady
+          await db.waitReady
         },
         async onMessage(data: Uint8Array, { isAuthenticated }: any) {
           if (!isAuthenticated) return
-          try {
-            const { data: responseData } = await (db as any).execProtocol(data)
-            return responseData
-          } catch {
-            return undefined
-          }
+          const { data: responseData } = await db.execProtocol(data, {
+            throwOnError: false,
+          })
+          return responseData
         },
+      }).catch(() => socket.destroy())
+    })
+
+    const previousPostgresUri = process.env.POSTGRES_URI
+    let connectionOverrideActive = false
+    try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
       })
-    })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject)
+        server.listen(0, "127.0.0.1", () => {
+          server.off("error", reject)
+          resolve()
+        })
+      })
+      const port = (server.address() as import("node:net").AddressInfo).port
+      const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+      // pg-schema-dump resolves this before PG_URI and DATABASE_URL.
+      // Its temporary connection must not fall back to a configured server.
+      process.env.POSTGRES_URI = connectionString
+      connectionOverrideActive = true
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+      await zg.generate({
+        db: { connectionString },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      if (connectionOverrideActive) {
+        if (previousPostgresUri === undefined) delete process.env.POSTGRES_URI
+        else process.env.POSTGRES_URI = previousPostgresUri
+      }
+      for (const socket of sockets) socket.destroy()
+      try {
+        if (server.listening) {
+          await new Promise<void>((resolve, reject) => {
+            server.close((error) => (error ? reject(error) : resolve()))
+          })
+        }
+      } finally {
+        await db.close()
+      }
+    }
     return
   }
 
