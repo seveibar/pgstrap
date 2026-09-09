@@ -55,10 +55,14 @@ npm install pgstrap --save-dev
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` - Generate types and structure dumps by running migrations against an in-memory PGlite instance. No external Postgres server is required. Use `pgstrap generate --no-pglite` to generate from an existing Postgres database instead.
 - `npm run db:create-migration` - Create a new migration file
 
 ### Configuration
+
+Type generation uses the project's migrations to build a temporary database by default. To reflect changes made directly to an existing Postgres database, run `pgstrap generate --no-pglite` with your usual Postgres connection configuration. Programmatic callers can likewise pass `pglite: false` to `generate`.
+
+Use Node.js 20 or newer for CLI generation with PGlite; its gateway dependency uses the global Web Crypto API.
 
 After running `pgstrap init`, you'll find a `pgstrap.config.js` file in your project root. Customize it as needed:
 
