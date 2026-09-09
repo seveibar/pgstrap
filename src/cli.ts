@@ -40,7 +40,7 @@ import { getProjectContext } from "./get-project-context"
       yargs.option("pglite", { type: "boolean" })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: argv.pglite })
+      await generate({ ...(await getProjectContext()), pglite: argv.pglite })
     },
   )
   .parse()

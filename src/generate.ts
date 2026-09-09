@@ -11,12 +11,15 @@ import { migrate } from "./migrate"
 /**
  * When the caller doesn't explicitly opt in or out of PGlite, fall back to the
  * embedded database only when no external PostgreSQL connection is configured
- * through the environment (DATABASE_URL, DATABASE_URI, PG_URI or POSTGRES_HOST).
+ * through the environment. POSTGRES_URI, PG_URI and DATABASE_URI are checked
+ * because pg-schema-dump resolves them with higher precedence than
+ * DATABASE_URL.
  */
 const hasConfiguredConnection = () =>
   process.env.DATABASE_URL !== undefined ||
   process.env.DATABASE_URI !== undefined ||
   process.env.PG_URI !== undefined ||
+  process.env.POSTGRES_URI !== undefined ||
   process.env.POSTGRES_HOST !== undefined
 
 export const generate = async ({
@@ -39,15 +42,6 @@ export const generate = async ({
     const net = await import("node:net")
 
     const db = new PGlite()
-
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
     const server = net.createServer(async (socket) => {
       const connection = await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
@@ -72,19 +66,39 @@ export const generate = async ({
       })
     })
 
-    // an unhandled "error" event on the server would crash the process
-    server.on("error", (error) => {
-      throw error
-    })
-
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
-
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+    // point every PostgreSQL connection env var at the temporary PGlite
+    // server: zapatos reads DATABASE_URL, but pg-schema-dump resolves
+    // POSTGRES_URI, PG_URI and DATABASE_URI with higher precedence
+    const connectionEnvVars = [
+      "DATABASE_URL",
+      "DATABASE_URI",
+      "PG_URI",
+      "POSTGRES_URI",
+    ] as const
+    const previousValues = connectionEnvVars.map((name) => ({
+      name,
+      value: process.env[name],
+    }))
 
     try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject)
+        server.listen(0, () => resolve())
+      })
+      const port = (server.address() as any).port
+      const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+      for (const name of connectionEnvVars) {
+        process.env[name] = connectionString
+      }
+
       await zg.generate({
         db: {
           connectionString,
@@ -102,8 +116,11 @@ export const generate = async ({
       })
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()))
-      if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-      else process.env.DATABASE_URL = prevDbUrl
+      await (db as any).close()
+      for (const { name, value } of previousValues) {
+        if (value === undefined) delete process.env[name]
+        else process.env[name] = value
+      }
     }
     return
   }
