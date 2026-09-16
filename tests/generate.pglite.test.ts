@@ -27,7 +27,7 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     defaultDatabase: "postgres",
     dbDir: path.join(tmp, "db"),
     migrationsDir,
-    pglite: true,
+    // defaults to pglite: true
   })
 
   const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
