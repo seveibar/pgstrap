@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import yargs from "yargs"
+import yargs from "yargs/yargs"
+import { hideBin } from "yargs/helpers"
 import { migrate, reset, generate, createMigration, initPgstrap } from "./"
 import { getProjectContext } from "./get-project-context"
-;(yargs as any)
+yargs(hideBin(process.argv))
   .command("init", "initialize pgstrap", {}, async () => {
     await initPgstrap({
       cwd: process.cwd(),
@@ -38,7 +39,11 @@ import { getProjectContext } from "./get-project-context"
       yargs.option("pglite", { type: "boolean", default: false })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
     },
   )
-  .parse()
+  .parseAsync()
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
