@@ -8,19 +8,42 @@ import { dumpTree } from "pg-schema-dump"
 import path from "path"
 import { migrate } from "./migrate"
 
-/**
- * When the caller doesn't explicitly opt in or out of PGlite, fall back to the
- * embedded database only when no external PostgreSQL connection is configured
- * through the environment. POSTGRES_URI, PG_URI and DATABASE_URI are checked
- * because pg-schema-dump resolves them with higher precedence than
- * DATABASE_URL.
- */
-const hasConfiguredConnection = () =>
-  process.env.DATABASE_URL !== undefined ||
-  process.env.DATABASE_URI !== undefined ||
-  process.env.PG_URI !== undefined ||
-  process.env.POSTGRES_URI !== undefined ||
-  process.env.POSTGRES_HOST !== undefined
+const missingConnectionDefaults = {
+  host: "\0",
+  user: "\0",
+  port: -1,
+  database: "\0",
+  password: "\0",
+}
+
+const emptyConnection = getPgConnectionFromEnv({
+  env: {},
+  fallbackDefaults: missingConnectionDefaults,
+})
+
+const hasConfiguredConnection = (env: NodeJS.ProcessEnv) => {
+  const normalizedEnv: Record<string, string> = {}
+
+  for (const [name, value] of Object.entries(env)) {
+    const normalizedValue = value?.trim()
+    if (normalizedValue) normalizedEnv[name] = normalizedValue
+  }
+
+  const connection = getPgConnectionFromEnv({
+    env: normalizedEnv,
+    fallbackDefaults: missingConnectionDefaults,
+  })
+
+  return JSON.stringify(connection) !== JSON.stringify(emptyConnection)
+}
+
+export const shouldUsePglite = ({
+  pglite,
+  env = process.env,
+}: {
+  pglite?: boolean
+  env?: NodeJS.ProcessEnv
+}) => pglite ?? !hasConfiguredConnection(env)
 
 export const generate = async ({
   schemas,
@@ -34,7 +57,7 @@ export const generate = async ({
 }) => {
   dbDir = dbDir ?? "./src/db"
   migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
-  const usePglite = pglite ?? !hasConfiguredConnection()
+  const usePglite = shouldUsePglite({ pglite, env: process.env })
 
   if (usePglite) {
     const { PGlite } = await import("@electric-sql/pglite")
