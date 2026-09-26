@@ -2,7 +2,7 @@
 import yargs from "yargs"
 import { migrate, reset, generate, createMigration, initPgstrap } from "./"
 import { getProjectContext } from "./get-project-context"
-;(yargs as any)
+yargs(process.argv.slice(2))
   .command("init", "initialize pgstrap", {}, async () => {
     await initPgstrap({
       cwd: process.cwd(),
@@ -35,10 +35,15 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      return yargs.option("pglite", {
+        type: "boolean",
+        default: true,
+        describe:
+          "Generate from migrations in memory; use --no-pglite for a running database",
+      })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({ ...(await getProjectContext()), pglite: argv.pglite })
     },
   )
   .parse()
