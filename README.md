@@ -38,15 +38,19 @@ npm install pgstrap --save-dev
 
 4. Edit the migration file in `src/db/migrations/`.
 
-5. Run the migration:
+5. Generate types and structure from your migrations, without a running PostgreSQL server:
 
-   ```bash
-   npm run db:migrate
-   ```
-
-6. Generate types and structure:
    ```bash
    npm run db:generate
+   ```
+
+   Newly initialized projects use `pgstrap generate --pglite`. This runs the migrations in a temporary in-memory PGlite database, writes the generated files, and closes the database. It does not migrate your application database.
+
+   Offline generation ignores application database URLs, including `POSTGRES_URI` and `PG_URI`. Schema dumping runs in a separate local process connected only to the temporary database; the calling process's environment is not changed.
+
+6. When ready to apply the migrations to your running PostgreSQL database:
+   ```bash
+   npm run db:migrate
    ```
 
 ## Usage
@@ -55,8 +59,10 @@ npm install pgstrap --save-dev
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` (or `bun run db:generate`) - Generate types and structure dumps from migrations in an in-memory PGlite instance.
 - `npm run db:create-migration` - Create a new migration file
+
+For an existing project, change its `db:generate` script to `pgstrap generate --pglite` to generate offline. Running `pgstrap init` again also resets the package scripts to these defaults. To introspect an existing PostgreSQL database instead, run `pgstrap generate` without the flag. The programmatic `generate()` default is unchanged. Migrations using PostgreSQL extensions unavailable in PGlite still require PostgreSQL.
 
 ### Configuration
 
