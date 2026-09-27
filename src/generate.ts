@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -27,16 +27,33 @@ export const generate = async ({
     const net = await import("node:net")
 
     const db = new PGlite()
+    let server: import("node:net").Server | undefined
 
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
+    // The embedded gateway and the in-memory database must always be released,
+    // otherwise a failed generation can leave the process with open handles.
+    const teardown = async () => {
+      const srv = server
+      if (srv) {
+        server = undefined
+        await new Promise<void>((resolve) => srv.close(() => resolve()))
+      }
+      await db.close()
+    }
 
-    const server = net.createServer(async (socket) => {
+    try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
+      })
+    } catch (error) {
+      await teardown()
+      throw error
+    }
+
+    server = net.createServer(async (socket) => {
       const connection = await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
         auth: {
@@ -60,32 +77,65 @@ export const generate = async ({
       })
     })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
+    await new Promise<void>((resolve) => server!.listen(0, resolve))
+    const port = (server!.address() as any).port
     const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+    // pg-schema-dump resolves its own connection from the environment through
+    // pg-connection-from-env, which prefers POSTGRES_URI/PG_URI over
+    // DATABASE_URL and otherwise falls back to the POSTGRES_HOST/POSTGRES_PORT
+    // variables. Override every alias so the dump talks to the embedded PGlite
+    // gateway and never to the project's own postgres server.
+    const uriEnvKeys = [
+      "POSTGRES_URI",
+      "PG_URI",
+      "DATABASE_URL",
+      "DATABASE_URI",
+    ]
+    const hostEnvKeys = [
+      "POSTGRES_HOST",
+      "POSTGRES_PORT",
+      "POSTGRES_USER",
+      "POSTGRES_USERNAME",
+      "POSTGRES_PASSWORD",
+      "POSTGRES_PASS",
+      "POSTGRES_DATABASE",
+      "POSTGRES_DB",
+      "POSTGRES_SSL",
+    ]
+    const previousEnv = new Map(
+      [...uriEnvKeys, ...hostEnvKeys].map((key) => [key, process.env[key]]),
+    )
+    const restoreEnv = () => {
+      for (const [key, value] of previousEnv) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+    for (const key of uriEnvKeys) process.env[key] = connectionString
+    for (const key of hostEnvKeys) delete process.env[key]
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
+    try {
+      await zg.generate({
+        db: {
+          connectionString,
+        },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
 
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      restoreEnv()
+      await teardown()
+    }
     return
   }
 
