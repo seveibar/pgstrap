@@ -44,4 +44,6 @@ test("generate with pglite runs migrations and dumps structure", async () => {
   expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
 
   fs.rmSync(tmp, { recursive: true, force: true })
-})
+  // PGlite's wasm startup makes this the slowest test in the suite; the default
+  // 5s limit is not enough when the whole suite runs in parallel.
+}, 30000)
