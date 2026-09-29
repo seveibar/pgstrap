@@ -22,6 +22,8 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     migrationFile,
   )
 
+  const prevDbUrl = process.env.DATABASE_URL
+
   await generate({
     schemas: ["public"],
     defaultDatabase: "postgres",
@@ -42,6 +44,7 @@ test("generate with pglite runs migrations and dumps structure", async () => {
 
   expect(fs.existsSync(zapatosFile)).toBe(true)
   expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  expect(process.env.DATABASE_URL).toBe(prevDbUrl)
 
   fs.rmSync(tmp, { recursive: true, force: true })
 })
