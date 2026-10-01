@@ -49,14 +49,24 @@ npm install pgstrap --save-dev
    npm run db:generate
    ```
 
+   This script applies your migrations to an in-memory PGlite database, so you
+   can also run `bun run db:generate` without a running PostgreSQL server or
+   database credentials. The migration step above is only needed to update your
+   application database, not to generate types.
+
 ## Usage
 
 ### Available Scripts
 
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:reset` - Drop and recreate the database, then run all migrations
-- `npm run db:generate` - Generate types and structure dumps. Use `pgstrap generate --pglite` to run migrations against an in-memory PGlite instance.
+- `npm run db:generate` - Generate types and structure dumps from your migrations using an in-memory PGlite instance. No external PostgreSQL server is required.
 - `npm run db:create-migration` - Create a new migration file
+
+These scripts are created by `pgstrap init`. For an existing project, update
+`db:generate` to `pgstrap generate --pglite` to use this behavior. To generate
+types and dumps from an external PostgreSQL database instead, run `pgstrap generate`
+directly with your database connection configured.
 
 ### Configuration
 
