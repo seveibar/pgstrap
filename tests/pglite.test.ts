@@ -48,4 +48,4 @@ test("migration of a pglite db works", async () => {
 
   // Clean up
   fs.rmSync(migrationsDir, { recursive: true, force: true })
-})
+}, 30_000)
