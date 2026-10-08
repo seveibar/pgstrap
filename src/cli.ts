@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import yargs from "yargs"
+import { hideBin } from "yargs/helpers"
 import { migrate, reset, generate, createMigration, initPgstrap } from "./"
 import { getProjectContext } from "./get-project-context"
-;(yargs as any)
+yargs(hideBin(process.argv))
   .command("init", "initialize pgstrap", {}, async () => {
     await initPgstrap({
       cwd: process.cwd(),
@@ -35,10 +36,15 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", {
+        type: "boolean",
+        default: true,
+        describe:
+          "generate from migrations in memory; --no-pglite uses Postgres",
+      })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
     },
   )
   .parse()
