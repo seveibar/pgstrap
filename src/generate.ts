@@ -1,117 +1,126 @@
-import * as zg from "zapatos/generate"
-import {
-  getConnectionStringFromEnv,
-  getPgConnectionFromEnv,
-} from "pg-connection-from-env"
-import { Context } from "./get-project-context"
-import { dumpTree } from "pg-schema-dump"
-import path from "path"
-import { migrate } from "./migrate"
+import { PGlite } from "@electric-sql/pglite"
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
+import { dirname, resolve } from "node:path"
 
-export const generate = async ({
-  schemas,
-  defaultDatabase,
-  dbDir,
-  pglite = false,
-  migrationsDir,
-}: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
-  pglite?: boolean
-  migrationsDir?: string
-}) => {
-  dbDir = dbDir ?? "./src/db"
-  migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
+const SCHEMA_PATH = resolve(process.cwd(), "schema.sql")
+const OUTPUT_PATH = resolve(process.cwd(), "src/db-types.ts")
 
-  if (pglite) {
-    const { PGlite } = await import("@electric-sql/pglite")
-    const { fromNodeSocket } = await import("pg-gateway/node")
-    const net = await import("node:net")
+interface ColumnInfo {
+  table_name: string
+  column_name: string
+  data_type: string
+  is_nullable: "YES" | "NO"
+  column_default: string | null
+}
 
-    const db = new PGlite()
+interface TableInfo {
+  table_name: string
+}
 
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
+function pgTypeToTs(dataType: string): string {
+  switch (dataType) {
+    case "integer":
+    case "bigint":
+    case "smallint":
+    case "numeric":
+    case "real":
+    case "double precision":
+      return "number"
+    case "boolean":
+      return "boolean"
+    case "json":
+    case "jsonb":
+      return "unknown"
+    case "timestamp":
+    case "timestamp with time zone":
+    case "timestamp without time zone":
+    case "date":
+      return "Date"
+    case "bytea":
+      return "Uint8Array"
+    default:
+      return "string"
+  }
+}
 
-    const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
-        serverVersion: "16.3 (PGlite)",
-        auth: {
-          method: "password",
-          validateCredentials: ({ username, password }: any) =>
-            username === "postgres" && password === "postgres",
-          getClearTextPassword: () => "postgres",
-        },
-        async onStartup() {
-          await (db as any).waitReady
-        },
-        async onMessage(data: Uint8Array, { isAuthenticated }: any) {
-          if (!isAuthenticated) return
-          try {
-            const { data: responseData } = await (db as any).execProtocol(data)
-            return responseData
-          } catch {
-            return undefined
-          }
-        },
-      })
-    })
-
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
-
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
-
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
-
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
-    return
+async function generate() {
+  if (!existsSync(SCHEMA_PATH)) {
+    console.error(`Schema file not found at ${SCHEMA_PATH}`)
+    process.exit(1)
   }
 
-  await zg.generate({
-    db: {
-      connectionString: getConnectionStringFromEnv({
-        fallbackDefaults: {
-          database: defaultDatabase,
-        },
-      }),
-    },
-    schemas: Object.fromEntries(
-      schemas.map((s) => [
-        s,
-        {
-          include: "*",
-          exclude: [],
-        },
-      ]),
-    ),
-    outDir: dbDir,
-  })
+  const schema = readFileSync(SCHEMA_PATH, "utf-8")
 
-  await dumpTree({
-    targetDir: path.join(dbDir, "structure"),
-    defaultDatabase,
-    schemas,
-  })
+  const db = new PGlite()
+  await db.exec(schema)
+
+  const tables = await db.query<TableInfo>(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `)
+
+  const columns = await db.query<ColumnInfo>(`
+    SELECT table_name, column_name, data_type, is_nullable, column_default
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    ORDER BY table_name, ordinal_position
+  `)
+
+  const columnsByTable = new Map<string, ColumnInfo[]>()
+  for (const col of columns.rows) {
+    const list = columnsByTable.get(col.table_name) ?? []
+    list.push(col)
+    columnsByTable.set(col.table_name, list)
+  }
+
+  const lines: string[] = []
+  lines.push("// AUTO-GENERATED FILE. DO NOT EDIT.")
+  lines.push("// Generated by pgstrap using PGlite.")
+  lines.push("")
+
+  for (const table of tables.rows) {
+    const cols = columnsByTable.get(table.table_name) ?? []
+    const typeName = pascalCase(table.table_name)
+    lines.push(`export interface ${typeName} {`)
+    for (const col of cols) {
+      const optional = col.is_nullable === "YES" || col.column_default !== null
+      const tsType = pgTypeToTs(col.data_type)
+      lines.push(`  ${col.column_name}${optional ? "?" : ""}: ${tsType}`)
+    }
+    lines.push("}")
+    lines.push("")
+  }
+
+  lines.push("export interface Database {")
+  for (const table of tables.rows) {
+    lines.push(`  ${table.table_name}: ${pascalCase(table.table_name)}`)
+  }
+  lines.push("}")
+  lines.push("")
+
+  const outDir = dirname(OUTPUT_PATH)
+  if (!existsSync(outDir)) {
+    mkdirSync(outDir, { recursive: true })
+  }
+
+  writeFileSync(OUTPUT_PATH, lines.join("\n"), "utf-8")
+  console.log(`Generated types at ${OUTPUT_PATH}`)
+
+  await db.close()
 }
+
+function pascalCase(input: string): string {
+  return input
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("")
+}
+
+generate().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
