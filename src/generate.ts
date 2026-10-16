@@ -1,117 +1,123 @@
-import * as zg from "zapatos/generate"
-import {
-  getConnectionStringFromEnv,
-  getPgConnectionFromEnv,
-} from "pg-connection-from-env"
-import { Context } from "./get-project-context"
-import { dumpTree } from "pg-schema-dump"
-import path from "path"
-import { migrate } from "./migrate"
+import { PGlite } from "@electric-sql/pglite"
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
+import { dirname, resolve } from "node:path"
 
-export const generate = async ({
-  schemas,
-  defaultDatabase,
-  dbDir,
-  pglite = false,
-  migrationsDir,
-}: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
-  pglite?: boolean
-  migrationsDir?: string
-}) => {
-  dbDir = dbDir ?? "./src/db"
-  migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
+const ROOT = resolve(import.meta.dir, "..")
+const SCHEMA_PATH = resolve(ROOT, "schema.sql")
+const OUTPUT_PATH = resolve(ROOT, "src", "generated", "types.ts")
 
-  if (pglite) {
-    const { PGlite } = await import("@electric-sql/pglite")
-    const { fromNodeSocket } = await import("pg-gateway/node")
-    const net = await import("node:net")
-
-    const db = new PGlite()
-
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
-    const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
-        serverVersion: "16.3 (PGlite)",
-        auth: {
-          method: "password",
-          validateCredentials: ({ username, password }: any) =>
-            username === "postgres" && password === "postgres",
-          getClearTextPassword: () => "postgres",
-        },
-        async onStartup() {
-          await (db as any).waitReady
-        },
-        async onMessage(data: Uint8Array, { isAuthenticated }: any) {
-          if (!isAuthenticated) return
-          try {
-            const { data: responseData } = await (db as any).execProtocol(data)
-            return responseData
-          } catch {
-            return undefined
-          }
-        },
-      })
-    })
-
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
-
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
-
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
-
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
-    return
+async function main() {
+  if (!existsSync(SCHEMA_PATH)) {
+    throw new Error(`Schema file not found at ${SCHEMA_PATH}`)
   }
 
-  await zg.generate({
-    db: {
-      connectionString: getConnectionStringFromEnv({
-        fallbackDefaults: {
-          database: defaultDatabase,
-        },
-      }),
-    },
-    schemas: Object.fromEntries(
-      schemas.map((s) => [
-        s,
-        {
-          include: "*",
-          exclude: [],
-        },
-      ]),
-    ),
-    outDir: dbDir,
-  })
+  const schema = readFileSync(SCHEMA_PATH, "utf8")
 
-  await dumpTree({
-    targetDir: path.join(dbDir, "structure"),
-    defaultDatabase,
-    schemas,
-  })
+  // Spin up an in-memory Postgres (WASM) — no external server required.
+  const db = new PGlite()
+
+  try {
+    await db.exec(schema)
+
+    const { rows } = await db.query<{
+      table_name: string
+      column_name: string
+      data_type: string
+      is_nullable: "YES" | "NO"
+    }>(`
+      SELECT
+        table_name,
+        column_name,
+        data_type,
+        is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position
+    `)
+
+    const tables = new Map<string, Array<{ name: string; type: string; nullable: boolean }>>()
+
+    for (const row of rows) {
+      if (!tables.has(row.table_name)) {
+        tables.set(row.table_name, [])
+      }
+      tables.get(row.table_name)!.push({
+        name: row.column_name,
+        type: mapPgType(row.data_type),
+        nullable: row.is_nullable === "YES",
+      })
+    }
+
+    const output = renderTypes(tables)
+
+    mkdirSync(dirname(OUTPUT_PATH), { recursive: true })
+    writeFileSync(OUTPUT_PATH, output, "utf8")
+
+    console.log(`Generated types for ${tables.size} table(s) at ${OUTPUT_PATH}`)
+  } finally {
+    await db.close()
+  }
 }
+
+function mapPgType(pgType: string): string {
+  switch (pgType) {
+    case "integer":
+    case "smallint":
+    case "bigint":
+    case "numeric":
+    case "real":
+    case "double precision":
+      return "number"
+    case "boolean":
+      return "boolean"
+    case "json":
+    case "jsonb":
+      return "unknown"
+    case "timestamp":
+    case "timestamp with time zone":
+    case "timestamp without time zone":
+    case "date":
+    case "time":
+      return "Date"
+    case "bytea":
+      return "Uint8Array"
+    default:
+      return "string"
+  }
+}
+
+function renderTypes(
+  tables: Map<string, Array<{ name: string; type: string; nullable: boolean }>>,
+): string {
+  const lines: string[] = [
+    "// AUTO-GENERATED — do not edit by hand.",
+    "// Run `bun run db:generate` to regenerate.",
+    "",
+  ]
+
+  for (const [tableName, columns] of tables) {
+    const typeName = toPascalCase(tableName)
+    lines.push(`export interface ${typeName} {`)
+    for (const col of columns) {
+      const optional = col.nullable ? "?" : ""
+      lines.push(`  ${col.name}${optional}: ${col.type}`)
+    }
+    lines.push("}")
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
+function toPascalCase(input: string): string {
+  return input
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("")
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
