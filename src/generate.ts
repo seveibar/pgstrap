@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -62,7 +62,7 @@ export const generate = async ({
 
     await new Promise<void>((resolve) => server.listen(0, resolve))
     const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres` 
 
     const prevDbUrl = process.env.DATABASE_URL
     process.env.DATABASE_URL = connectionString
