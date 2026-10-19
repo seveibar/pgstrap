@@ -22,26 +22,52 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     migrationFile,
   )
 
-  await generate({
-    schemas: ["public"],
-    defaultDatabase: "postgres",
-    dbDir: path.join(tmp, "db"),
-    migrationsDir,
-    pglite: true,
-  })
-
-  const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
-  const structureDir = path.join(
-    tmp,
-    "db",
-    "structure",
-    "public",
-    "tables",
-    "foo",
+  const connectionEnvKeys = [
+    "POSTGRES_URI",
+    "PG_URI",
+    "DATABASE_URL",
+    "DATABASE_URI",
+  ] as const
+  const previousConnectionEnv = Object.fromEntries(
+    connectionEnvKeys.map((key) => [key, process.env[key]]),
   )
+  const externalConnectionString =
+    "postgres://invalid:invalid@127.0.0.1:1/unavailable"
 
-  expect(fs.existsSync(zapatosFile)).toBe(true)
-  expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  try {
+    for (const key of connectionEnvKeys) {
+      process.env[key] = externalConnectionString
+    }
 
-  fs.rmSync(tmp, { recursive: true, force: true })
+    await generate({
+      schemas: ["public"],
+      defaultDatabase: "postgres",
+      dbDir: path.join(tmp, "db"),
+      migrationsDir,
+      pglite: true,
+    })
+
+    for (const key of connectionEnvKeys) {
+      expect(process.env[key]).toBe(externalConnectionString)
+    }
+    const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+    const structureDir = path.join(
+      tmp,
+      "db",
+      "structure",
+      "public",
+      "tables",
+      "foo",
+    )
+
+    expect(fs.existsSync(zapatosFile)).toBe(true)
+    expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  } finally {
+    for (const key of connectionEnvKeys) {
+      const previousValue = previousConnectionEnv[key]
+      if (previousValue === undefined) delete process.env[key]
+      else process.env[key] = previousValue
+    }
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
 })
