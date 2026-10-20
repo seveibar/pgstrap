@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -27,14 +27,6 @@ export const generate = async ({
     const net = await import("node:net")
 
     const db = new PGlite()
-
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
 
     const server = net.createServer(async (socket) => {
       const connection = await fromNodeSocket(socket, {
@@ -60,32 +52,47 @@ export const generate = async ({
       })
     })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+    try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
+      })
 
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+      await new Promise<void>((resolve) => server.listen(0, resolve))
+      const port = (server.address() as any).port
+      const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+      const prevDbUrl = process.env.DATABASE_URL
+      process.env.DATABASE_URL = connectionString
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
+      try {
+        await zg.generate({
+          db: {
+            connectionString,
+          },
+          schemas: Object.fromEntries(
+            schemas.map((s) => [s, { include: "*", exclude: [] }]),
+          ),
+          outDir: dbDir,
+        })
 
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+        await dumpTree({
+          targetDir: path.join(dbDir, "structure"),
+          defaultDatabase: "postgres",
+          schemas,
+        })
+      } finally {
+        if (prevDbUrl === undefined) delete process.env.DATABASE_URL
+        else process.env.DATABASE_URL = prevDbUrl
+      }
+    } finally {
+      ;(server as any).closeAllConnections?.()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      await db.close()
+    }
     return
   }
 
