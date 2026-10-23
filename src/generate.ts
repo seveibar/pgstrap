@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -22,6 +22,18 @@ export const generate = async ({
   migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
 
   if (pglite) {
+    const hasExplicitPgEnv = Boolean(
+      process.env.DATABASE_URL ||
+        process.env.PGHOST ||
+        process.env.PGDATABASE ||
+        process.env.PGUSER,
+    )
+    if (hasExplicitPgEnv) {
+      console.log(
+        "[pgstrap] Using an in-memory PGlite instance, ignoring Postgres connection environment. " +
+          "Pass --no-pglite (CLI) or pglite: false (API) to generate from your Postgres database instead.",
+      )
+    }
     const { PGlite } = await import("@electric-sql/pglite")
     const { fromNodeSocket } = await import("pg-gateway/node")
     const net = await import("node:net")
