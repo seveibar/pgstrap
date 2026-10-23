@@ -29,16 +29,23 @@ import { getProjectContext } from "./get-project-context"
     process.exit(0)
   })
   .command("migrate", "migrates the database", {}, async () => {
-    migrate(await getProjectContext())
+    await migrate(await getProjectContext())
   })
   .command(
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", {
+        type: "boolean",
+        default: true,
+        describe: "Use in-memory PGlite instead of requiring a running Postgres instance",
+      })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      await generate({
+        ...(await getProjectContext()),
+        pglite: argv.pglite !== false,
+      })
     },
   )
   .parse()

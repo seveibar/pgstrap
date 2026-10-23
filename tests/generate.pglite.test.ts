@@ -13,8 +13,8 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
+test("generate defaults to pglite without requiring a running postgres server", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-default-"))
   const migrationsDir = path.join(tmp, "migrations")
   fs.mkdirSync(migrationsDir, { recursive: true })
   fs.writeFileSync(
@@ -22,12 +22,14 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     migrationFile,
   )
 
+  const prevDbUrl = process.env.DATABASE_URL
+  delete process.env.DATABASE_URL
+
   await generate({
     schemas: ["public"],
     defaultDatabase: "postgres",
     dbDir: path.join(tmp, "db"),
     migrationsDir,
-    pglite: true,
   })
 
   const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
@@ -42,6 +44,8 @@ test("generate with pglite runs migrations and dumps structure", async () => {
 
   expect(fs.existsSync(zapatosFile)).toBe(true)
   expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  expect(process.env.DATABASE_URL).toBeUndefined()
 
+  if (prevDbUrl !== undefined) process.env.DATABASE_URL = prevDbUrl
   fs.rmSync(tmp, { recursive: true, force: true })
 })
