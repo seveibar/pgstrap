@@ -12,7 +12,7 @@ export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite = true,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -28,16 +28,11 @@ export const generate = async ({
 
     const db = new PGlite()
 
-    await migrate({
-      client: db as any,
-      migrationsDir,
-      defaultDatabase,
-      cwd: process.cwd(),
-      schemas,
-    })
-
+    const sockets = new Set<import("node:net").Socket>()
     const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
+      sockets.add(socket)
+      socket.on("close", () => sockets.delete(socket))
+      await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
         auth: {
           method: "password",
@@ -57,35 +52,56 @@ export const generate = async ({
             return undefined
           }
         },
+      }).catch(() => socket.destroy())
+    })
+
+    // pg-schema-dump reads these in priority order rather than accepting a client.
+    const connectionEnv = ["POSTGRES_URI", "PG_URI", "DATABASE_URL"] as const
+    const previousEnv = connectionEnv.map(
+      (key) => [key, process.env[key]] as const,
+    )
+    try {
+      await migrate({
+        client: db as any,
+        migrationsDir,
+        defaultDatabase,
+        cwd: process.cwd(),
+        schemas,
       })
-    })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
-    const port = (server.address() as any).port
-    const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject)
+        server.listen(0, "127.0.0.1", () => {
+          server.removeListener("error", reject)
+          resolve()
+        })
+      })
+      const port = (server.address() as import("node:net").AddressInfo).port
+      const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
+      for (const key of connectionEnv) process.env[key] = connectionString
 
-    const prevDbUrl = process.env.DATABASE_URL
-    process.env.DATABASE_URL = connectionString
+      await zg.generate({
+        db: { connectionString },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
-
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      for (const [key, value] of previousEnv) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      for (const socket of sockets) socket.destroy()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      await db.close()
+    }
     return
   }
 
