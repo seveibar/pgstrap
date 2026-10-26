@@ -13,11 +13,29 @@ import { Context } from "./get-project-context"
 const debug = Debug("pgstrap")
 
 export async function createMigration(name: string, ctx: Context) {
-  childProcess.execSync(
-    `npx node-pg-migrate --migration-file-language ts -m ${
-      ctx.dbDir ?? "src/db"
-    }/migrations create ${name}`,
-  )
+  if (process.platform === "win32") {
+    // npx.cmd requires a shell; keep the existing Windows invocation.
+    childProcess.execSync(
+      `npx node-pg-migrate --migration-file-language ts -m ${
+        ctx.dbDir ?? "src/db"
+      }/migrations create ${name}`,
+      { cwd: ctx.cwd },
+    )
+  } else {
+    childProcess.execFileSync(
+      "npx",
+      [
+        "node-pg-migrate",
+        "--migration-file-language",
+        "ts",
+        "-m",
+        `${ctx.dbDir ?? "src/db"}/migrations`,
+        "create",
+        name,
+      ],
+      { cwd: ctx.cwd },
+    )
+  }
   console.log(`Migration ${name} created`)
 }
 
