@@ -11,13 +11,13 @@ import { getProjectContext } from "./get-project-context"
   .command(
     "create-migration [name]",
     "create a new migration",
-    (yargs) => {
+    (yargs: any) => {
       yargs.positional("name", {
         describe: "name of the migration file",
         type: "string",
       })
     },
-    async (argv) => {
+    async (argv: any) => {
       const ctx = await getProjectContext()
       createMigration(argv.name as string, ctx)
     },
@@ -34,11 +34,18 @@ import { getProjectContext } from "./get-project-context"
   .command(
     "generate",
     "generate types and sql documentation from database",
-    (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+    (yargs: any) => {
+      yargs.option("pglite", {
+        type: "boolean",
+        default: true,
+        describe:
+          "Use embedded PGlite instead of requiring an external Postgres instance",
+      })
     },
-    async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+    async (argv: any) => {
+      const ctx = await getProjectContext()
+      const usePglite = argv.pglite !== false && (ctx.pglite ?? true)
+      generate({ ...ctx, pglite: usePglite })
     },
   )
   .parse()
