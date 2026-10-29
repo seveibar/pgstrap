@@ -13,7 +13,7 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
+test("generate defaults to pglite and dumps migrated types and structure", async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
   const migrationsDir = path.join(tmp, "migrations")
   fs.mkdirSync(migrationsDir, { recursive: true })
@@ -27,7 +27,6 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     defaultDatabase: "postgres",
     dbDir: path.join(tmp, "db"),
     migrationsDir,
-    pglite: true,
   })
 
   const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
@@ -44,4 +43,44 @@ test("generate with pglite runs migrations and dumps structure", async () => {
   expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
 
   fs.rmSync(tmp, { recursive: true, force: true })
+})
+
+test("failed migrations restore DATABASE_URL and permit another generation", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-failure-"))
+  const migrationsDir = path.join(tmp, "migrations")
+  fs.mkdirSync(migrationsDir)
+  const file = path.join(migrationsDir, "1700000000000_create_foo.js")
+  fs.writeFileSync(
+    file,
+    'exports.up = () => { throw new Error("migration failure") }',
+  )
+  const previous = process.env.DATABASE_URL
+  process.env.DATABASE_URL =
+    "postgres://postgres:postgres@127.0.0.1:1/unavailable"
+  const options = {
+    schemas: ["public"],
+    defaultDatabase: "postgres",
+    dbDir: path.join(tmp, "db"),
+    migrationsDir,
+  }
+  try {
+    await expect(generate(options)).rejects.toThrow("migration failure")
+    expect(process.env.DATABASE_URL).toBe(
+      "postgres://postgres:postgres@127.0.0.1:1/unavailable",
+    )
+    fs.unlinkSync(file)
+    fs.writeFileSync(
+      path.join(migrationsDir, "1700000000001_create_foo.js"),
+      migrationFile,
+    )
+    await generate(options)
+    expect(fs.existsSync(path.join(tmp, "db/zapatos/schema.d.ts"))).toBe(true)
+    expect(process.env.DATABASE_URL).toBe(
+      "postgres://postgres:postgres@127.0.0.1:1/unavailable",
+    )
+  } finally {
+    if (previous === undefined) delete process.env.DATABASE_URL
+    else process.env.DATABASE_URL = previous
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
 })
