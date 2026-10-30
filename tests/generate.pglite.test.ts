@@ -44,4 +44,27 @@ test("generate with pglite runs migrations and dumps structure", async () => {
   expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
 
   fs.rmSync(tmp, { recursive: true, force: true })
-})
+}, 15000)
+
+test("generate defaults to pglite without background postgres running", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-default-"))
+  const migrationsDir = path.join(tmp, "migrations")
+  fs.mkdirSync(migrationsDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(migrationsDir, "001_create_table.js"),
+    migrationFile,
+  )
+
+  // Omit pglite parameter to assert default behavior
+  await generate({
+    schemas: ["public"],
+    defaultDatabase: "postgres",
+    dbDir: path.join(tmp, "db"),
+    migrationsDir,
+  })
+
+  const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+  expect(fs.existsSync(zapatosFile)).toBe(true)
+
+  fs.rmSync(tmp, { recursive: true, force: true })
+}, 15000)
