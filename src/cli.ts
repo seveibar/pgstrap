@@ -35,10 +35,10 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", { type: "boolean", default: true, describe: "use in-memory pglite so postgres is not required in background" })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      generate({ ...(await getProjectContext()), pglite: argv.pglite !== false })
     },
   )
   .parse()
