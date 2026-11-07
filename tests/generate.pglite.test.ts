@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test"
+import { expect, test } from "bun:test"
 import fs from "fs"
 import os from "os"
 import path from "path"
@@ -13,7 +13,7 @@ exports.down = async (pgm) => {
 }
 `
 
-test("generate with pglite runs migrations and dumps structure", async () => {
+test("generate defaults to pglite and dumps schema without external postgres", async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-"))
   const migrationsDir = path.join(tmp, "migrations")
   fs.mkdirSync(migrationsDir, { recursive: true })
@@ -27,7 +27,6 @@ test("generate with pglite runs migrations and dumps structure", async () => {
     defaultDatabase: "postgres",
     dbDir: path.join(tmp, "db"),
     migrationsDir,
-    pglite: true,
   })
 
   const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
