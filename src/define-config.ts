@@ -3,6 +3,8 @@ export interface PgstrapConfig {
   schemas: string[]
 
   dbDir?: string
+  migrationsDir?: string
+  pglite?: boolean
 }
 
 export const defineConfig = (config: PgstrapConfig) => config
