@@ -11,13 +11,13 @@ import { getProjectContext } from "./get-project-context"
   .command(
     "create-migration [name]",
     "create a new migration",
-    (yargs) => {
+    (yargs: any) => {
       yargs.positional("name", {
         describe: "name of the migration file",
         type: "string",
       })
     },
-    async (argv) => {
+    async (argv: any) => {
       const ctx = await getProjectContext()
       createMigration(argv.name as string, ctx)
     },
@@ -29,16 +29,31 @@ import { getProjectContext } from "./get-project-context"
     process.exit(0)
   })
   .command("migrate", "migrates the database", {}, async () => {
-    migrate(await getProjectContext())
+    await migrate(await getProjectContext())
   })
   .command(
     "generate",
     "generate types and sql documentation from database",
-    (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+    (yargs: any) => {
+      yargs
+        .option("pglite", {
+          type: "boolean",
+          describe: "Use in-memory PGlite instead of background Postgres daemon",
+        })
+        .option("postgres", {
+          type: "boolean",
+          default: false,
+          describe: "Force external Postgres connection instead of PGlite",
+        })
     },
-    async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+    async (argv: any) => {
+      const ctx = await getProjectContext()
+      const usePglite = argv.postgres
+        ? false
+        : argv.pglite !== undefined
+          ? Boolean(argv.pglite)
+          : ctx.pglite ?? true
+      await generate({ ...ctx, pglite: usePglite })
     },
   )
   .parse()
