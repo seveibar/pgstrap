@@ -8,11 +8,19 @@ import { dumpTree } from "pg-schema-dump"
 import path from "path"
 import { migrate } from "./migrate"
 
+const hasPostgresEnv = () =>
+  Boolean(
+    process.env.DATABASE_URL ||
+      process.env.PGHOST ||
+      process.env.PGURL ||
+      process.env.POSTGRES_URL,
+  )
+
 export const generate = async ({
   schemas,
   defaultDatabase,
   dbDir,
-  pglite = false,
+  pglite,
   migrationsDir,
 }: Pick<Context, "schemas" | "defaultDatabase" | "dbDir"> & {
   pglite?: boolean
@@ -20,13 +28,15 @@ export const generate = async ({
 }) => {
   dbDir = dbDir ?? "./src/db"
   migrationsDir = migrationsDir ?? path.join(dbDir, "migrations")
+  const usePglite = pglite ?? !hasPostgresEnv()
 
-  if (pglite) {
+  if (usePglite) {
     const { PGlite } = await import("@electric-sql/pglite")
     const { fromNodeSocket } = await import("pg-gateway/node")
     const net = await import("node:net")
 
     const db = new PGlite()
+    await (db as any).waitReady
 
     await migrate({
       client: db as any,
@@ -37,7 +47,7 @@ export const generate = async ({
     })
 
     const server = net.createServer(async (socket) => {
-      const connection = await fromNodeSocket(socket, {
+      await fromNodeSocket(socket, {
         serverVersion: "16.3 (PGlite)",
         auth: {
           method: "password",
@@ -60,32 +70,52 @@ export const generate = async ({
       })
     })
 
-    await new Promise<void>((resolve) => server.listen(0, resolve))
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const port = (server.address() as any).port
     const connectionString = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
 
-    const prevDbUrl = process.env.DATABASE_URL
+    const prevEnv = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      PGHOST: process.env.PGHOST,
+      PGPORT: process.env.PGPORT,
+      PGUSER: process.env.PGUSER,
+      PGPASSWORD: process.env.PGPASSWORD,
+      PGDATABASE: process.env.PGDATABASE,
+    }
+
     process.env.DATABASE_URL = connectionString
+    process.env.PGHOST = "127.0.0.1"
+    process.env.PGPORT = String(port)
+    process.env.PGUSER = "postgres"
+    process.env.PGPASSWORD = "postgres"
+    process.env.PGDATABASE = "postgres"
 
-    await zg.generate({
-      db: {
-        connectionString,
-      },
-      schemas: Object.fromEntries(
-        schemas.map((s) => [s, { include: "*", exclude: [] }]),
-      ),
-      outDir: dbDir,
-    })
+    try {
+      await zg.generate({
+        db: {
+          connectionString,
+        },
+        schemas: Object.fromEntries(
+          schemas.map((s) => [s, { include: "*", exclude: [] }]),
+        ),
+        outDir: dbDir,
+      })
 
-    await dumpTree({
-      targetDir: path.join(dbDir, "structure"),
-      defaultDatabase: "postgres",
-      schemas,
-    })
-
-    server.close()
-    if (prevDbUrl === undefined) delete process.env.DATABASE_URL
-    else process.env.DATABASE_URL = prevDbUrl
+      await dumpTree({
+        targetDir: path.join(dbDir, "structure"),
+        defaultDatabase: "postgres",
+        schemas,
+      })
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      if (typeof (db as any).close === "function") {
+        await (db as any).close()
+      }
+      for (const [key, val] of Object.entries(prevEnv)) {
+        if (val === undefined) delete process.env[key]
+        else process.env[key] = val
+      }
+    }
     return
   }
 

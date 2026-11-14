@@ -45,3 +45,44 @@ test("generate with pglite runs migrations and dumps structure", async () => {
 
   fs.rmSync(tmp, { recursive: true, force: true })
 })
+
+test("generate defaults to pglite when no postgres env is set", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pgstrap-generate-default-"))
+  const migrationsDir = path.join(tmp, "migrations")
+  fs.mkdirSync(migrationsDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(migrationsDir, "001_create_table.js"),
+    migrationFile,
+  )
+
+  const savedDbUrl = process.env.DATABASE_URL
+  const savedPgHost = process.env.PGHOST
+  delete process.env.DATABASE_URL
+  delete process.env.PGHOST
+
+  try {
+    await generate({
+      schemas: ["public"],
+      defaultDatabase: "postgres",
+      dbDir: path.join(tmp, "db"),
+      migrationsDir,
+    })
+
+    const zapatosFile = path.join(tmp, "db", "zapatos", "schema.d.ts")
+    const structureDir = path.join(
+      tmp,
+      "db",
+      "structure",
+      "public",
+      "tables",
+      "foo",
+    )
+
+    expect(fs.existsSync(zapatosFile)).toBe(true)
+    expect(fs.existsSync(path.join(structureDir, "table.sql"))).toBe(true)
+  } finally {
+    if (savedDbUrl !== undefined) process.env.DATABASE_URL = savedDbUrl
+    if (savedPgHost !== undefined) process.env.PGHOST = savedPgHost
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})

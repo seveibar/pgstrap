@@ -19,7 +19,7 @@ import { getProjectContext } from "./get-project-context"
     },
     async (argv) => {
       const ctx = await getProjectContext()
-      createMigration(argv.name as string, ctx)
+      await createMigration(argv.name as string, ctx)
     },
   )
   .command("reset", "resets the database", {}, async () => {
@@ -29,16 +29,23 @@ import { getProjectContext } from "./get-project-context"
     process.exit(0)
   })
   .command("migrate", "migrates the database", {}, async () => {
-    migrate(await getProjectContext())
+    await migrate(await getProjectContext())
   })
   .command(
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", {
+        type: "boolean",
+        describe: "use in-memory PGlite instance instead of a running Postgres server",
+      })
     },
     async (argv) => {
-      generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
+      const ctx = await getProjectContext()
+      await generate({
+        ...ctx,
+        pglite: argv.pglite !== undefined ? Boolean(argv.pglite) : ctx.pglite,
+      })
     },
   )
   .parse()
