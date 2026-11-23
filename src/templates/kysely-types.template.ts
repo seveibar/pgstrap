@@ -1,6 +1,10 @@
-export default `import { ColumnType, Kysely } from "kysely"
+import { ColumnType, Kysely } from "kysely"
 import * as schema from "zapatos/schema"
 import { SQLFragment } from "zapatos/db"
+import pglite from "pglite"  // Import pglite
+
+// Initialize pglite to emulate PostgreSQL
+const db = new pglite.Database()
 
 type ZapatosInsertableTypeToPrimitive<T> = Exclude<T, symbol | SQLFragment>
 
@@ -20,4 +24,4 @@ export type KyselySchema = {
   readonly [T in schema.Table]: ZapatosTableNameToKyselySchema<T>
 }
 
-export type KyselyDatabaseInstance = Kysely<KyselySchema>`
+export type KyselyDatabaseInstance = Kysely<KyselySchema>
