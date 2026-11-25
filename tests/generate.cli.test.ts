@@ -19,8 +19,10 @@ test("the initialized db:generate script uses migrations without PostgreSQL", as
     mkdirSync(bin, { recursive: true })
     // Exercise the scaffold's script against the source CLI before packaging.
     writeFileSync(
-      path.join(bin, "pgstrap"),
-      `#!/bin/sh\nexec "$BUN_BIN" "$PGSTRAP_CLI" "$@"\n`,
+      path.join(bin, process.platform === "win32" ? "pgstrap.cmd" : "pgstrap"),
+      process.platform === "win32"
+        ? '@echo off\r\n"%BUN_BIN%" "%PGSTRAP_CLI%" %*\r\n'
+        : `#!/bin/sh\nexec "$BUN_BIN" "$PGSTRAP_CLI" "$@"\n`,
       { mode: 0o755 },
     )
     const db = path.join(cwd, "src/db")
@@ -46,6 +48,28 @@ test("the initialized db:generate script uses migrations without PostgreSQL", as
     expect(
       readFileSync(path.join(db, "zapatos/schema.d.ts"), "utf8"),
     ).toContain("widgets")
+    // An explicit opt-out must connect to the configured external database,
+    // rather than silently falling back to PGlite.
+    const external = Bun.spawn(
+      [process.execPath, "run", "db:generate", "--no-pglite"],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          BUN_BIN: process.execPath,
+          PGSTRAP_CLI: path.resolve(import.meta.dir, "../src/cli.ts"),
+          POSTGRES_URI: "postgres://postgres@127.0.0.1:1/unreachable",
+        },
+        stderr: "pipe",
+        stdout: "pipe",
+      },
+    )
+    const externalOutput = await Promise.all([
+      new Response(external.stderr).text(),
+      new Response(external.stdout).text(),
+    ])
+    expect(await external.exited).not.toBe(0)
+    expect(externalOutput.join("\n")).toContain("ECONNREFUSED")
     expect(
       readFileSync(
         path.join(db, "structure/public/tables/widgets/table.sql"),
