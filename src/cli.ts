@@ -35,7 +35,12 @@ import { getProjectContext } from "./get-project-context"
     "generate",
     "generate types and sql documentation from database",
     (yargs) => {
-      yargs.option("pglite", { type: "boolean", default: false })
+      yargs.option("pglite", {
+        type: "boolean",
+        default: true,
+        describe:
+          "generate from an in-memory PGlite instance (no running postgres required). Use --no-pglite to generate from the external postgres in DATABASE_URL",
+      })
     },
     async (argv) => {
       generate({ ...(await getProjectContext()), pglite: !!argv.pglite })
